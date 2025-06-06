@@ -1,0 +1,3 @@
+[workspace]
+members = ["token-transferring", "transaction-history"]
+resolver = "2"

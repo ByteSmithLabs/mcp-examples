@@ -1,0 +1,17 @@
+{
+  "canisters": {
+    "transaction-history": {
+      "candid": "transaction-history.did",
+      "package": "transaction-history",
+      "type": "rust"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+}
