@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 #![allow(dead_code, unused_imports)]
 use candid::{self, CandidType, Deserialize, Principal};
 use ic_cdk::api::call::CallResult as Result;
