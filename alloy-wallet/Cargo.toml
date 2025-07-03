@@ -1,5 +1,5 @@
 [package]
-name = "token-transferring"
+name = "alloy-wallet"
 version = "0.1.0"
 edition = "2021"
 publish = false
@@ -19,4 +19,15 @@ serde = "1.0.219"
 serde_bytes = "0.11.17"
 schemars = "0.8.22"
 serde_json = "1.0.140"
-rust_decimal = "1.37"
+bitcoin = "0.32.6"
+anyhow = "1.0.98"
+ethers-core = "2.0.14"
+num = "0.4.3"
+alloy-consensus = "0.1.3"
+alloy-primitives = "0.7.6"
+alloy-eips = "0.1.3"
+num-traits = "0.2.19"
+ic-secp256k1 = "0.1.0"
+
+# See https://forum.dfinity.org/t/module-imports-function-wbindgen-describe-from-wbindgen-placeholder-that-is-not-exported-by-the-runtime/11545/8
+getrandom = { version = "*", default-features = false, features = ["custom"] }

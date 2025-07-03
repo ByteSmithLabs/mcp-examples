@@ -1,14 +1,24 @@
 use candid::{Nat, Principal};
-use ic_cdk_macros::{query, update};
+use ic_cdk::{init, query, update};
 use ic_http_certification::{HttpRequest, HttpResponse, StatusCode};
 use ic_rmcp::{Handler, Server};
 use rmcp::{handler::server::tool::schema_for_type, model::*, Error};
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{from_value, Value};
+use std::cell::RefCell;
 
 mod icp_index;
 use icp_index::{Account, GetAccountTransactionsArgs, Service};
+
+thread_local! {
+    static API_KEY : RefCell<String> = const {RefCell::new(String::new())} ;
+}
+
+#[init]
+fn init(api_key: String) {
+    API_KEY.with_borrow_mut(|key| *key = api_key)
+}
 
 #[derive(JsonSchema, Deserialize)]
 struct GetTransactionHistoryRequest {
@@ -73,12 +83,12 @@ impl Handler for TransactionHistory {
                         },
                     })
                     .await
-                    .map_err(|err| Error::internal_error(format!("{:?}", err), None))?
+                    .map_err(|err| Error::internal_error(format!("{err:?}"), None))?
                     .0
-                    .map_err(|err| Error::internal_error(format!("{:?}", err), None))?;
+                    .map_err(|err| Error::internal_error(format!("{err:?}"), None))?;
 
                 let content = Content::json(response)
-                    .map_err(|err| Error::internal_error(format!("{:?}", err), None))?;
+                    .map_err(|err| Error::internal_error(format!("{err:?}"), None))?;
 
                 Ok(CallToolResult::success(content.into_contents()))
             }
@@ -101,7 +111,7 @@ async fn http_request_update(req: HttpRequest<'_>) -> HttpResponse {
         .handle_with_auth(&req, |headers| {
             headers
                 .iter()
-                .any(|(k, v)| k == "x-api-key" && v == "123456")
+                .any(|(k, v)| k == "x-api-key" && *v == API_KEY.with_borrow(|k| k.clone()))
         })
         .await
 }
