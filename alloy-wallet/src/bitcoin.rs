@@ -333,8 +333,7 @@ fn build_transaction_with_fee(
     // Abort if we can't cover the payment + fee.
     if total_spent < amount + fee {
         return Err(format!(
-            "Insufficient balance: {}, trying to transfer {} satoshi with fee {}",
-            total_spent, amount, fee
+            "Insufficient balance: {total_spent}, trying to transfer {amount} satoshi with fee {fee}"
         ));
     }
 

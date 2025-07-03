@@ -64,7 +64,7 @@ impl Handler for AlloyWallet {
                             "The p2pkh legacy Bitcoin address of the server is: {}",
                             get_p2pkh_address()
                                 .await
-                                .map_err(|err| Error::internal_error(format!("{:?}", err), None))?
+                                .map_err(|err| Error::internal_error(format!("{err:?}"), None))?
                         ))
                         .into_contents(),
                     )),
@@ -73,7 +73,7 @@ impl Handler for AlloyWallet {
                             "The EIP-55 checksum format Ethereum address of the server is: {}",
                             get_address()
                                 .await
-                                .map_err(|err| Error::internal_error(format!("{:?}", err), None))?
+                                .map_err(|err| Error::internal_error(format!("{err:?}"), None))?
                         ))
                         .into_contents(),
                     )),
@@ -95,7 +95,7 @@ impl Handler for AlloyWallet {
                             "The Bitcoin balance is: {} satoshi.",
                             get_balance(args.address)
                                 .await
-                                .map_err(|err| Error::internal_error(format!("{:?}", err), None))?
+                                .map_err(|err| Error::internal_error(format!("{err:?}"), None))?
                         ))
                         .into_contents(),
                     )),
@@ -104,7 +104,7 @@ impl Handler for AlloyWallet {
                             "The Ethereum balance is: {} wei.",
                             ethereum::get_balance(args.address)
                                 .await
-                                .map_err(|err| Error::internal_error(format!("{:?}", err), None))?
+                                .map_err(|err| Error::internal_error(format!("{err:?}"), None))?
                         ))
                         .into_contents(),
                     )),
@@ -125,7 +125,7 @@ impl Handler for AlloyWallet {
                             "Success! The transaction Id is {}",
                             send_from_p2pkh_address(args.destination_address, args.amount as u64)
                                 .await
-                                .map_err(|err| Error::internal_error(format!("{:?}", err), None))?
+                                .map_err(|err| Error::internal_error(format!("{err:?}"), None))?
                         ))
                         .into_contents(),
                     )),
@@ -134,7 +134,7 @@ impl Handler for AlloyWallet {
                             "Success! The raw transaction hash is {}",
                             transfer(args.destination_address, args.amount)
                                 .await
-                                .map_err(|err| Error::internal_error(format!("{:?}", err), None))?
+                                .map_err(|err| Error::internal_error(format!("{err:?}"), None))?
                         ))
                         .into_contents(),
                     )),

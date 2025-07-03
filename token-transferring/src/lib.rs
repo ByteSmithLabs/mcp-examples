@@ -87,12 +87,12 @@ impl Handler for TokenTransferring {
                 let (symbol,) = ledger
                     .icrc_1_symbol()
                     .await
-                    .map_err(|err| Error::internal_error(format!("{:?}", err), None))?;
+                    .map_err(|err| Error::internal_error(format!("{err:?}"), None))?;
 
                 let (decimals,) = ledger
                     .icrc_1_decimals()
                     .await
-                    .map_err(|err| Error::internal_error(format!("{:?}", err), None))?;
+                    .map_err(|err| Error::internal_error(format!("{err:?}"), None))?;
 
                 let owner = if let Some(own_text) = request.owner {
                     Principal::from_text(own_text).map_err(|_| {
@@ -108,7 +108,7 @@ impl Handler for TokenTransferring {
                         subaccount: None,
                     })
                     .await
-                    .map_err(|err| Error::internal_error(format!("{:?}", err), None))?;
+                    .map_err(|err| Error::internal_error(format!("{err:?}"), None))?;
 
                 Ok(CallToolResult::success(
                     Content::text(format!(
@@ -150,9 +150,9 @@ impl Handler for TokenTransferring {
                         amount: Nat::from(req.amount),
                     })
                     .await
-                    .map_err(|err| Error::internal_error(format!("{:?}", err), None))?
+                    .map_err(|err| Error::internal_error(format!("{err:?}"), None))?
                     .0
-                    .map_err(|err| Error::internal_error(format!("{:?}", err), None))?;
+                    .map_err(|err| Error::internal_error(format!("{err:?}"), None))?;
 
                 Ok(CallToolResult::success(
                     Content::text("Success").into_contents(),
@@ -176,7 +176,7 @@ impl Handler for TokenTransferring {
                 let decimals = ledger
                     .icrc_1_decimals()
                     .await
-                    .map_err(|err| Error::internal_error(format!("{:?}", err), None))?
+                    .map_err(|err| Error::internal_error(format!("{err:?}"), None))?
                     .0;
 
                 TOKENS.with_borrow_mut(|tokens| {

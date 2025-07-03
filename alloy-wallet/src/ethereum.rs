@@ -129,8 +129,7 @@ async fn sign(message_hash: [u8; 32]) -> Result<([u8; 64], RecoveryId), Error> {
 
 pub async fn get_balance(address: String) -> Result<Nat, Error> {
     let hex_balance:Value  = from_str(&Service(Principal::from_text("7hfb6-caaaa-aaaar-qadga-cai").unwrap()).request(&RPCSERVICE, &format!(
-        r#"{{ "jsonrpc": "2.0", "method": "eth_getBalance", "params": ["{}", "latest"], "id": 1 }}"#,
-        address
+        r#"{{ "jsonrpc": "2.0", "method": "eth_getBalance", "params": ["{address}", "latest"], "id": 1 }}"#
     ).to_string(), &500_u64, 2000000000).await.map_err(|err| anyhow!(format!("{:?}", err)))?.0.map_err(|err| anyhow!(format!("{:?}", err)))?)?;
 
     Ok(Nat(BigUint::from_str_radix(
@@ -160,5 +159,5 @@ fn nat_to_u64(nat: Nat) -> u64 {
     use num_traits::cast::ToPrimitive;
     nat.0
         .to_u64()
-        .unwrap_or_else(|| ic_cdk::trap(format!("Nat {} doesn't fit into a u64", nat)))
+        .unwrap_or_else(|| ic_cdk::trap(format!("Nat {nat} doesn't fit into a u64")))
 }

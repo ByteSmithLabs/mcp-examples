@@ -83,12 +83,12 @@ impl Handler for TransactionHistory {
                         },
                     })
                     .await
-                    .map_err(|err| Error::internal_error(format!("{:?}", err), None))?
+                    .map_err(|err| Error::internal_error(format!("{err:?}"), None))?
                     .0
-                    .map_err(|err| Error::internal_error(format!("{:?}", err), None))?;
+                    .map_err(|err| Error::internal_error(format!("{err:?}"), None))?;
 
                 let content = Content::json(response)
-                    .map_err(|err| Error::internal_error(format!("{:?}", err), None))?;
+                    .map_err(|err| Error::internal_error(format!("{err:?}"), None))?;
 
                 Ok(CallToolResult::success(content.into_contents()))
             }
