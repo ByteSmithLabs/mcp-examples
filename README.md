@@ -9,5 +9,5 @@ This repo only aims to provide some showcases for the capability of a MCP server
 ```bash
 bash scripts/deploy.sh token-transferring
 bash scripts/deploy.sh transaction-history
-bash scripts/deploy.sh allot-wallet
+bash scripts/deploy.sh alloy-wallet
 ```
