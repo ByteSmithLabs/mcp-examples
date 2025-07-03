@@ -3,7 +3,8 @@
     "alloy-wallet": {
       "candid": "alloy-wallet.did",
       "package": "alloy-wallet",
-      "type": "rust"
+      "type": "rust",
+      "gzip": true
     },
     "evm_rpc": {
       "type": "pull",

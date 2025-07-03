@@ -162,7 +162,7 @@ impl Handler for AlloyWallet {
                 ),
                 Tool::new(
                     "transfer",
-                    "Transfer assets (coin/token) from the server address to a given address on a specified chain. For Bitcoin, the amount is in the unit of Satoshi. For Ethereum, it's Wei.",
+                    "Transfer assets (coin/token) from the server address to a given address on a specified chain. For Bitcoin, the amount is in the unit of Satoshi. For Ethereum, it's Wei. For Solana, it's Lamport.",
                     schema_for_type::<TransferRequest>(),
                 )
             ],
