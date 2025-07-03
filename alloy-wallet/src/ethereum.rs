@@ -26,6 +26,7 @@ fn rpc_services() -> RpcServices {
 }
 const DERIVATION_PATH: [[u8; 0]; 0] = [];
 const KEY_NAME: &str = "dfx_test_key";
+const CHAIN_ID: u64 = 11155111;
 
 pub async fn get_address() -> Result<String, Error> {
     let key = PublicKey::from_sec1_bytes(public_key().await?.as_slice())?;
@@ -45,7 +46,7 @@ pub async fn transfer(to: String, amount: u128) -> Result<String, Error> {
     use alloy_eips::eip2718::Encodable2718;
 
     let transaction = TxEip1559 {
-        chain_id: 11155111,
+        chain_id: CHAIN_ID,
         nonce: nat_to_u64(
             get_transaction_count(get_address().await?.clone(), BlockTag::Latest).await?,
         ),
