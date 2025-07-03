@@ -36,7 +36,7 @@ fi
 # Deploy the canister to the playground
 echo "Deploying $FOLDER_NAME canister to IC playground..."
 cargo generate-lockfile
-dfx deploy "$FOLDER_NAME" --mode reinstall --output-env-file .env --playground
+dfx deploy "$FOLDER_NAME" --argument "\"$API_KEY\"" --mode reinstall --output-env-file .env --playground
 
 # Check if deployment was successful
 if [ $? -ne 0 ]; then
