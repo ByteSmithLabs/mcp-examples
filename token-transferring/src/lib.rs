@@ -1,5 +1,5 @@
 use ic_cdk::api;
-use ic_cdk_macros::{init, post_upgrade, query, update};
+use ic_cdk::{init, query, update};
 use ic_http_certification::{HttpRequest, HttpResponse, StatusCode};
 use ic_rmcp::{Handler, Server};
 use rmcp::{handler::server::tool::schema_for_type, model::*, Error};
@@ -15,12 +15,12 @@ use candid::{Nat, Principal};
 mod ledger;
 
 thread_local! {
-    #[allow(clippy::missing_const_for_thread_local)]
-    static TOKENS: RefCell<Vec<(String, String, u8)>> = RefCell::new(Vec::new());
+    static TOKENS: RefCell<Vec<(String, String, u8)>> = const{RefCell::new(Vec::new())};
+    static API_KEY : RefCell<String> = const {RefCell::new(String::new())} ;
 }
 
 #[init]
-fn init() {
+fn init(api_key: String) {
     TOKENS.with_borrow_mut(|tokens| {
         tokens.push((
             "ICP".to_string(),
@@ -42,12 +42,9 @@ fn init() {
             "xevnm-gaaaa-aaaar-qafnq-cai".to_string(),
             6,
         ))
-    })
-}
+    });
 
-#[post_upgrade]
-fn post_upgrade() {
-    init();
+    API_KEY.with_borrow_mut(|key| *key = api_key)
 }
 
 struct TokenTransferring;
@@ -90,19 +87,19 @@ impl Handler for TokenTransferring {
                 let (symbol,) = ledger
                     .icrc_1_symbol()
                     .await
-                    .map_err(|err| Error::internal_error(format!("{:?}", err), None))?;
+                    .map_err(|err| Error::internal_error(format!("{err:?}"), None))?;
 
                 let (decimals,) = ledger
                     .icrc_1_decimals()
                     .await
-                    .map_err(|err| Error::internal_error(format!("{:?}", err), None))?;
+                    .map_err(|err| Error::internal_error(format!("{err:?}"), None))?;
 
                 let owner = if let Some(own_text) = request.owner {
                     Principal::from_text(own_text).map_err(|_| {
                         Error::invalid_params("invalid arguments to tool get_balance", None)
                     })?
                 } else {
-                    api::id()
+                    api::canister_self()
                 };
 
                 let balance = ledger
@@ -111,7 +108,7 @@ impl Handler for TokenTransferring {
                         subaccount: None,
                     })
                     .await
-                    .map_err(|err| Error::internal_error(format!("{:?}", err), None))?;
+                    .map_err(|err| Error::internal_error(format!("{err:?}"), None))?;
 
                 Ok(CallToolResult::success(
                     Content::text(format!(
@@ -153,16 +150,17 @@ impl Handler for TokenTransferring {
                         amount: Nat::from(req.amount),
                     })
                     .await
-                    .map_err(|err| Error::internal_error(format!("{:?}", err), None))?
+                    .map_err(|err| Error::internal_error(format!("{err:?}"), None))?
                     .0
-                    .map_err(|err| Error::internal_error(format!("{:?}", err), None))?;
+                    .map_err(|err| Error::internal_error(format!("{err:?}"), None))?;
 
                 Ok(CallToolResult::success(
                     Content::text("Success").into_contents(),
                 ))
             }
             "get_principal" => Ok(CallToolResult::success(
-                Content::text(format!("Canister principal: {}", api::id())).into_contents(),
+                Content::text(format!("Canister principal: {}", api::canister_self()))
+                    .into_contents(),
             )),
             "add_token" => {
                 let request = from_value::<AddTokenRequest>(Value::Object(req.arguments.ok_or(
@@ -178,7 +176,7 @@ impl Handler for TokenTransferring {
                 let decimals = ledger
                     .icrc_1_decimals()
                     .await
-                    .map_err(|err| Error::internal_error(format!("{:?}", err), None))?
+                    .map_err(|err| Error::internal_error(format!("{err:?}"), None))?
                     .0;
 
                 TOKENS.with_borrow_mut(|tokens| {
@@ -246,7 +244,7 @@ async fn http_request_update(req: HttpRequest<'_>) -> HttpResponse {
         .handle_with_auth(&req, |headers| {
             headers
                 .iter()
-                .any(|(k, v)| k == "x-api-key" && v == "123456")
+                .any(|(k, v)| k == "x-api-key" && *v == API_KEY.with_borrow(|k| k.clone()))
         })
         .await
 }

@@ -2,6 +2,12 @@
 
 This MCP server enables token transfers and balance queries for ICRC-1 tokens on the Internet Computer blockchain. It provides tools to manage and transfer tokens from the server's account and to retrieve information about supported tokens.
 
+## Deployment:
+```bash
+dfx deploy token-transferring --argument '("YOUR_API_KEY")' --mode install
+```
+After deployment on local network or playground/mainnet, you can access it at: `https://<CANISTER_ID>.icp0.io/mcp` (for playground) or `https://<CANISTER_ID>.localhost:<BINDING_PORT>/mcp` (for local).
+
 ## Tools
 
 The server exposes the following tools:
