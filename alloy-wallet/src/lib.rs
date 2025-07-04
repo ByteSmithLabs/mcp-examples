@@ -116,8 +116,14 @@ impl Handler for AlloyWallet {
                         ))
                         .into_contents(),
                     )),
-                    Chain::Solana => Ok(CallToolResult::error(
-                        Content::text("Unimplemented.").into_contents(),
+                    Chain::Solana => Ok(CallToolResult::success(
+                        Content::text(format!(
+                            "The Solana balance is: {} lamport.",
+                            solana::get_balance(args.address)
+                                .await
+                                .map_err(|err| Error::internal_error(format!("{err:?}"), None))?
+                        ))
+                        .into_contents(),
                     )),
                 }
             }

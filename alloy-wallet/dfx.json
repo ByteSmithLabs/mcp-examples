@@ -13,7 +13,7 @@
       "type": "custom",
       "candid": "https://github.com/dfinity/sol-rpc-canister/releases/download/v1.0.0/sol_rpc_canister.did",
       "wasm": "https://github.com/dfinity/sol-rpc-canister/releases/download/v1.0.0/sol_rpc_canister.wasm.gz",
-      "specified_id": "lxzze-o7777-77777-aaaaa-cai",
+      "specified_id": "tghme-zyaaa-aaaar-qarca-cai",
       "init_arg": "( record { manageApiKeys = null; overrideProvider = opt record { overrideUrl = opt record { pattern = \".*\"; replacement = \"https://api.devnet.solana.com\" } }; logFilter = opt variant { ShowAll }; numSubnetNodes = null; mode = opt variant { Demo }; } )"
     }
   },
