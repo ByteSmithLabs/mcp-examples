@@ -13,6 +13,8 @@ use bitcoin::{get_balance, get_p2pkh_address, send_from_p2pkh_address};
 mod ethereum;
 use ethereum::{get_address, transfer};
 
+mod solana;
+
 thread_local! {
     static API_KEY : RefCell<String> = const {RefCell::new(String::new())} ;
 }
@@ -77,8 +79,14 @@ impl Handler for AlloyWallet {
                         ))
                         .into_contents(),
                     )),
-                    Chain::Solana => Ok(CallToolResult::error(
-                        Content::text("Unimplemented.").into_contents(),
+                    Chain::Solana => Ok(CallToolResult::success(
+                        Content::text(format!(
+                            "The Solana address of the server is: {}",
+                            solana::get_address()
+                                .await
+                                .map_err(|err| Error::internal_error(format!("{err:?}"), None))?
+                        ))
+                        .into_contents(),
                     )),
                 }
             }

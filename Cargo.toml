@@ -1,3 +1,7 @@
 [workspace]
 members = ["token-transferring", "transaction-history", "alloy-wallet"]
 resolver = "2"
+
+
+[patch.crates-io]
+solana-pubkey = { git = "https://github.com/dfinity/agave", tag = "323039e-js-feature-flag" }
