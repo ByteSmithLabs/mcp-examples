@@ -1,7 +1,6 @@
 #![allow(non_snake_case)]
 #![allow(clippy::enum_variant_names)]
 #![allow(clippy::large_enum_variant)]
-
 #![allow(deprecated)]
 #![allow(dead_code, unused_imports)]
 use candid::{self, CandidType, Decode, Deserialize, Encode, Principal};
@@ -780,7 +779,7 @@ pub struct SendTransactionParams {
     pub skipPreflight: Option<bool>,
 }
 
-#[derive(CandidType, Deserialize)]
+#[derive(CandidType, Deserialize, Debug)]
 pub enum SendTransactionResult {
     Ok(Signature),
     Err(RpcError),

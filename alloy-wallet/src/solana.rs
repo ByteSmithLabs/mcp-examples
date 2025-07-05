@@ -6,17 +6,22 @@ use ic_cdk::management_canister::{
 use solana_pubkey::Pubkey;
 
 mod sol_rpc;
+use base64::engine::general_purpose::STANDARD;
+use base64::Engine;
+use bincode::serialize;
 use candid::Principal;
 use sol_rpc::{
     CommitmentLevel, ConsensusStrategy, GetBalanceParams, GetBalanceResult, GetBlockParams,
     GetBlockParamsCommitmentInner, GetBlockResult, GetSlotParams, GetSlotResult, GetSlotRpcConfig,
-    MultiGetBalanceResult, MultiGetBlockResult, MultiGetSlotResult, RpcConfig, RpcSources, Service,
-    SolanaCluster,
+    MultiGetBalanceResult, MultiGetBlockResult, MultiGetSlotResult, MultiSendTransactionResult,
+    RpcConfig, RpcSources, SendTransactionEncoding, SendTransactionParams, SendTransactionResult,
+    Service, SolanaCluster,
 };
 use solana_hash::Hash;
 use solana_message::Message;
 use solana_program::system_instruction;
 use solana_signature::Signature;
+use solana_transaction::Transaction;
 use std::str::FromStr;
 
 const KEY_NAME: &str = "dfx_test_key";
@@ -85,22 +90,46 @@ pub async fn transfer(address: String, amount: u64) -> Result<String, Error> {
         &Hash::from_str(&estimate_recent_blockhash().await?)?,
     );
 
-    let signatures = vec![sign_message(&message).await];
+    let signatures = vec![sign_message(&message).await?];
 
-    service.send_transaction(
-        RPC_SOURCES,
-        Some(RpcConfig {
-            responseConsensus: Some(ConsensusStrategy::Equality),
-            responseSizeEstimate: None,
-        }),
-        arg2,
-    );
+    let transaction = Transaction {
+        message,
+        signatures,
+    };
 
-    Ok("abc".to_string())
+    let transaction = STANDARD.encode(serialize(&transaction)?);
+
+    let response = service
+        .send_transaction(
+            RPC_SOURCES,
+            Some(RpcConfig {
+                responseConsensus: Some(ConsensusStrategy::Equality),
+                responseSizeEstimate: None,
+            }),
+            SendTransactionParams {
+                encoding: Some(SendTransactionEncoding::Base64),
+                preflightCommitment: None,
+                transaction,
+                maxRetries: None,
+                minContextSlot: None,
+                skipPreflight: None,
+            },
+        )
+        .await
+        .map_err(|err| anyhow!(format!("{:?}", err)))?
+        .0;
+
+    match response {
+        MultiSendTransactionResult::Inconsistent(results) => Err(anyhow!(format!("{:?}", results))),
+        MultiSendTransactionResult::Consistent(result) => match result {
+            SendTransactionResult::Err(err) => Err(anyhow!(format!("{:?}", err))),
+            SendTransactionResult::Ok(sig) => Ok(sig),
+        },
+    }
 }
 
 async fn sign_message(message: &Message) -> Result<Signature, Error> {
-    Ok(Signature::try_from(
+    Signature::try_from(
         sign_with_schnorr(&SignWithSchnorrArgs {
             message: message.serialize(),
             derivation_path: vec![],
@@ -113,7 +142,7 @@ async fn sign_message(message: &Message) -> Result<Signature, Error> {
         .await?
         .signature,
     )
-    .map_err(|err| anyhow!(format!("{:?}", err)))?)
+    .map_err(|err| anyhow!(format!("{:?}", err)))
 }
 
 async fn get_slot() -> Result<u64, Error> {
@@ -158,7 +187,7 @@ async fn get_blockhash(slot: u64) -> Result<String, Error> {
             GetBlockParams {
                 maxSupportedTransactionVersion: None,
                 transactionDetails: None,
-                slot: slot,
+                slot,
                 rewards: None,
                 commitment: Some(GetBlockParamsCommitmentInner::Finalized),
             },
@@ -183,14 +212,16 @@ async fn estimate_recent_blockhash() -> Result<String, Error> {
     let mut errors = Vec::with_capacity(3);
     while errors.len() < 3 {
         let slot = get_slot().await;
-        if slot.is_err() {
-            errors.push(slot.unwrap_err());
+
+        if let Err(err) = slot {
+            errors.push(err);
             continue;
-        };
+        }
 
         let blockhash = get_blockhash(slot.unwrap()).await;
-        if blockhash.is_err() {
-            errors.push(blockhash.unwrap_err());
+
+        if let Err(err) = blockhash {
+            errors.push(err);
             continue;
         }
 

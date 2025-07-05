@@ -153,7 +153,13 @@ impl Handler for AlloyWallet {
                         .into_contents(),
                     )),
                     Chain::Solana => Ok(CallToolResult::error(
-                        Content::text("Unimplemented.").into_contents(),
+                        Content::text(format!(
+                            "Success! The transaction signature is {}",
+                            solana::transfer(args.destination_address, args.amount as u64)
+                                .await
+                                .map_err(|err| Error::internal_error(format!("{err:?}"), None))?
+                        ))
+                        .into_contents(),
                     )),
                 }
             }
