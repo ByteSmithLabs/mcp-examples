@@ -30,6 +30,11 @@ num-traits = "0.2.19"
 ic-secp256k1 = "0.1.0"
 solana-pubkey = "2.2.0"
 bs58 = "0.5.0"
+solana-transaction = "2.2.0"
+solana-message = "2.2.0"
+solana-program = "2.2.0"
+solana-hash = "2.2.0"
+solana-signature = "2.2.0"
 
 # See https://forum.dfinity.org/t/module-imports-function-wbindgen-describe-from-wbindgen-placeholder-that-is-not-exported-by-the-runtime/11545/8
 getrandom = { version = "*", default-features = false, features = ["custom"] }

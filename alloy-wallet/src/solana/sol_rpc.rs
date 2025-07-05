@@ -297,7 +297,7 @@ pub struct GetBlockParams {
 pub type Timestamp = i64;
 pub type Hash = String;
 pub type Signature = String;
-#[derive(CandidType, Deserialize)]
+#[derive(CandidType, Deserialize, Debug)]
 pub enum RewardRewardTypeInner {
     #[serde(rename = "fee")]
     Fee,
@@ -309,7 +309,7 @@ pub enum RewardRewardTypeInner {
     Voting,
 }
 
-#[derive(CandidType, Deserialize)]
+#[derive(CandidType, Deserialize, Debug)]
 pub struct Reward {
     pub lamports: i64,
     pub postBalance: u64,
@@ -318,7 +318,7 @@ pub struct Reward {
     pub rewardType: Option<RewardRewardTypeInner>,
 }
 
-#[derive(CandidType, Deserialize)]
+#[derive(CandidType, Deserialize, Debug)]
 pub enum InstructionError {
     ModifiedProgramId,
     CallDepth,
@@ -376,7 +376,7 @@ pub enum InstructionError {
     InsufficientFunds,
 }
 
-#[derive(CandidType, Deserialize)]
+#[derive(CandidType, Deserialize, Debug)]
 pub enum TransactionError {
     ProgramCacheHitMaxLimit,
     InvalidAccountForFee,
@@ -419,13 +419,13 @@ pub enum TransactionError {
     BlockhashNotFound,
 }
 
-#[derive(CandidType, Deserialize)]
+#[derive(CandidType, Deserialize, Debug)]
 pub enum TransactionStatusMetaStatus {
     Ok,
     Err(TransactionError),
 }
 
-#[derive(CandidType, Deserialize)]
+#[derive(CandidType, Deserialize, Debug)]
 pub struct TokenAmount {
     pub decimals: u8,
     pub uiAmount: Option<f64>,
@@ -433,7 +433,7 @@ pub struct TokenAmount {
     pub amount: String,
 }
 
-#[derive(CandidType, Deserialize)]
+#[derive(CandidType, Deserialize, Debug)]
 pub struct TransactionTokenBalance {
     pub uiTokenAmount: TokenAmount,
     pub owner: Option<Pubkey>,
@@ -442,7 +442,7 @@ pub struct TransactionTokenBalance {
     pub programId: Option<Pubkey>,
 }
 
-#[derive(CandidType, Deserialize)]
+#[derive(CandidType, Deserialize, Debug)]
 pub struct CompiledInstruction {
     pub data: String,
     pub accounts: serde_bytes::ByteBuf,
@@ -450,31 +450,31 @@ pub struct CompiledInstruction {
     pub stackHeight: Option<u32>,
 }
 
-#[derive(CandidType, Deserialize)]
+#[derive(CandidType, Deserialize, Debug)]
 pub enum Instruction {
     #[serde(rename = "compiled")]
     Compiled(CompiledInstruction),
 }
 
-#[derive(CandidType, Deserialize)]
+#[derive(CandidType, Deserialize, Debug)]
 pub struct InnerInstructions {
     pub instructions: Vec<Instruction>,
     pub index: u8,
 }
 
-#[derive(CandidType, Deserialize)]
+#[derive(CandidType, Deserialize, Debug)]
 pub struct LoadedAddresses {
     pub writable: Vec<Pubkey>,
     pub readonly: Vec<Pubkey>,
 }
 
-#[derive(CandidType, Deserialize)]
+#[derive(CandidType, Deserialize, Debug)]
 pub struct TransactionStatusMetaReturnDataInner {
     pub data: String,
     pub programId: Pubkey,
 }
 
-#[derive(CandidType, Deserialize)]
+#[derive(CandidType, Deserialize, Debug)]
 pub struct TransactionStatusMeta {
     pub fee: u64,
     pub status: TransactionStatusMetaStatus,
@@ -490,7 +490,7 @@ pub struct TransactionStatusMeta {
     pub computeUnitsConsumed: Option<u64>,
 }
 
-#[derive(CandidType, Deserialize)]
+#[derive(CandidType, Deserialize, Debug)]
 pub enum EncodedTransactionBinary1 {
     #[serde(rename = "base58")]
     Base58,
@@ -498,7 +498,7 @@ pub enum EncodedTransactionBinary1 {
     Base64,
 }
 
-#[derive(CandidType, Deserialize)]
+#[derive(CandidType, Deserialize, Debug)]
 pub enum EncodedTransaction {
     #[serde(rename = "legacyBinary")]
     LegacyBinary(String),
@@ -506,7 +506,7 @@ pub enum EncodedTransaction {
     Binary(String, EncodedTransactionBinary1),
 }
 
-#[derive(CandidType, Deserialize)]
+#[derive(CandidType, Deserialize, Debug)]
 pub enum EncodedTransactionWithStatusMetaVersionInner {
     #[serde(rename = "legacy")]
     Legacy,
@@ -514,14 +514,14 @@ pub enum EncodedTransactionWithStatusMetaVersionInner {
     Number(u8),
 }
 
-#[derive(CandidType, Deserialize)]
+#[derive(CandidType, Deserialize, Debug)]
 pub struct EncodedTransactionWithStatusMeta {
     pub meta: Option<TransactionStatusMeta>,
     pub transaction: EncodedTransaction,
     pub version: Option<EncodedTransactionWithStatusMetaVersionInner>,
 }
 
-#[derive(CandidType, Deserialize)]
+#[derive(CandidType, Deserialize, Debug)]
 pub struct ConfirmedBlock {
     pub numRewardPartition: Option<u64>,
     pub blockTime: Option<Timestamp>,
@@ -534,7 +534,7 @@ pub struct ConfirmedBlock {
     pub parentSlot: Slot,
 }
 
-#[derive(CandidType, Deserialize)]
+#[derive(CandidType, Deserialize, Debug)]
 pub enum GetBlockResult {
     Ok(Option<ConfirmedBlock>),
     Err(RpcError),
@@ -685,7 +685,7 @@ pub struct GetSlotParams {
     pub commitment: Option<CommitmentLevel>,
 }
 
-#[derive(CandidType, Deserialize)]
+#[derive(CandidType, Deserialize, Debug)]
 pub enum GetSlotResult {
     Ok(Slot),
     Err(RpcError),
