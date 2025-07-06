@@ -13,7 +13,7 @@ use bitcoin::{
     TxOut, Txid, Witness,
 };
 
-use crate::{read_mode, Mode, read_key_name};
+use crate::{read_key_name, read_mode, Mode};
 use ic_cdk::bitcoin_canister::{
     bitcoin_get_balance, bitcoin_get_current_fee_percentiles, bitcoin_get_utxos,
     bitcoin_send_transaction, GetBalanceRequest, GetCurrentFeePercentilesRequest, GetUtxosRequest,

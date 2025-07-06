@@ -6,7 +6,8 @@ use ic_cdk::management_canister::{
 use solana_pubkey::Pubkey;
 
 mod sol_rpc;
-use base64::{engine::general_purpose::STANDARD};
+use crate::{read_key_name, read_mode, Mode};
+use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use bincode::serialize;
 use candid::Principal;
@@ -23,12 +24,11 @@ use solana_program::system_instruction;
 use solana_signature::Signature;
 use solana_transaction::Transaction;
 use std::str::FromStr;
-use crate::{read_key_name, read_mode, Mode};
 
 fn rpc_sources() -> RpcSources {
     match read_mode() {
         Mode::Test => RpcSources::Default(SolanaCluster::Devnet),
-        Mode::Production => RpcSources::Default(SolanaCluster::Mainnet)
+        Mode::Production => RpcSources::Default(SolanaCluster::Mainnet),
     }
 }
 

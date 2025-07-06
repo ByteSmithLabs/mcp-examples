@@ -13,34 +13,33 @@ use ic_cdk::management_canister::{
 use ic_secp256k1::RecoveryId;
 
 mod evm_rpc;
+use crate::{read_key_name, read_mode, Mode};
 use evm_rpc::{
-    BlockTag, EthSepoliaService, GetTransactionCountArgs, GetTransactionCountResult,
-    MultiGetTransactionCountResult, RpcService, RpcServices, Service,EthMainnetService
+    BlockTag, EthMainnetService, EthSepoliaService, GetTransactionCountArgs,
+    GetTransactionCountResult, MultiGetTransactionCountResult, RpcService, RpcServices, Service,
 };
 use num::{BigUint, Num};
 use serde_json::{from_str, Value};
-use crate::{read_key_name, read_mode, Mode};
-
 
 fn rpc_service() -> RpcService {
     match read_mode() {
         Mode::Test => RpcService::EthSepolia(EthSepoliaService::PublicNode),
-        Mode::Production => RpcService::EthMainnet(EthMainnetService::Cloudflare)
+        Mode::Production => RpcService::EthMainnet(EthMainnetService::Cloudflare),
     }
 }
 
 fn rpc_services() -> RpcServices {
     match read_mode() {
-        Mode::Test =>    RpcServices::EthSepolia(Some(vec![EthSepoliaService::PublicNode])),
-        Mode::Production => RpcServices::EthMainnet(None)
+        Mode::Test => RpcServices::EthSepolia(Some(vec![EthSepoliaService::PublicNode])),
+        Mode::Production => RpcServices::EthMainnet(None),
     }
 }
 
 fn chain_id() -> u64 {
     match read_mode() {
-        Mode::Test =>    11155111,
-        Mode::Production => 1, 
-    } 
+        Mode::Test => 11155111,
+        Mode::Production => 1,
+    }
 }
 
 const DERIVATION_PATH: [[u8; 0]; 0] = [];
