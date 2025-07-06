@@ -13,6 +13,7 @@ use bitcoin::{
     TxOut, Txid, Witness,
 };
 
+use crate::{read_mode, Mode, read_key_name};
 use ic_cdk::bitcoin_canister::{
     bitcoin_get_balance, bitcoin_get_current_fee_percentiles, bitcoin_get_utxos,
     bitcoin_send_transaction, GetBalanceRequest, GetCurrentFeePercentilesRequest, GetUtxosRequest,
@@ -20,9 +21,19 @@ use ic_cdk::bitcoin_canister::{
 };
 use ic_cdk::management_canister::{ecdsa_public_key, EcdsaCurve, EcdsaKeyId, EcdsaPublicKeyArgs};
 
-const NETWORK: bitcoin::Network = bitcoin::Network::Regtest;
-const IC_NETWORK: ic_cdk::bitcoin_canister::Network = ic_cdk::bitcoin_canister::Network::Regtest;
-const KEY_NAME: &str = "dfx_test_key";
+fn network() -> bitcoin::Network {
+    match read_mode() {
+        Mode::Test => bitcoin::Network::Regtest,
+        Mode::Production => bitcoin::Network::Bitcoin,
+    }
+}
+
+fn ic_network() -> ic_cdk::bitcoin_canister::Network {
+    match read_mode() {
+        Mode::Test => ic_cdk::bitcoin_canister::Network::Regtest,
+        Mode::Production => ic_cdk::bitcoin_canister::Network::Mainnet,
+    }
+}
 
 pub async fn get_p2pkh_address() -> Result<String, Error> {
     let derivation_path = DerivationPath::p2pkh(0, 0);
@@ -31,7 +42,7 @@ pub async fn get_p2pkh_address() -> Result<String, Error> {
 
     let public_key = PublicKey::from_slice(&public_key)?;
 
-    Ok(Address::p2pkh(public_key, NETWORK).to_string())
+    Ok(Address::p2pkh(public_key, network()).to_string())
 }
 
 enum Purpose {
@@ -98,7 +109,7 @@ async fn get_ecdsa_public_key(derivation_path: Vec<Vec<u8>>) -> Result<Vec<u8>, 
         derivation_path: derivation_path.clone(),
         key_id: EcdsaKeyId {
             curve: EcdsaCurve::Secp256k1,
-            name: KEY_NAME.to_string(),
+            name: read_key_name(),
         },
     })
     .await?
@@ -108,7 +119,7 @@ async fn get_ecdsa_public_key(derivation_path: Vec<Vec<u8>>) -> Result<Vec<u8>, 
 pub async fn get_balance(address: String) -> Result<u64, Error> {
     Ok(bitcoin_get_balance(&GetBalanceRequest {
         address,
-        network: IC_NETWORK,
+        network: ic_network(),
         min_confirmations: None,
     })
     .await?)
@@ -122,7 +133,7 @@ pub async fn send_from_p2pkh_address(
         return Err(anyhow!("Amount must be greater than 0"));
     }
 
-    let dst_address = Address::from_str(&destination_address)?.require_network(NETWORK)?;
+    let dst_address = Address::from_str(&destination_address)?.require_network(network())?;
 
     let derivation_path = DerivationPath::p2pkh(0, 0);
 
@@ -130,12 +141,12 @@ pub async fn send_from_p2pkh_address(
 
     let own_public_key = PublicKey::from_slice(&own_public_key)?;
 
-    let own_address = Address::p2pkh(own_public_key, NETWORK);
+    let own_address = Address::p2pkh(own_public_key, network());
 
     // assume response contains all UTXOs
     let own_utxos = bitcoin_get_utxos(&GetUtxosRequest {
         address: own_address.to_string(),
-        network: IC_NETWORK,
+        network: ic_network(),
         filter: None,
     })
     .await?
@@ -165,7 +176,7 @@ pub async fn send_from_p2pkh_address(
 
     // Send the transaction to the Bitcoin API.
     bitcoin_send_transaction(&SendTransactionRequest {
-        network: IC_NETWORK,
+        network: ic_network(),
         transaction: serialize(&signed_transaction),
     })
     .await
@@ -198,7 +209,7 @@ async fn sign_with_ecdsa(
 
 pub async fn get_fee_per_byte() -> Result<u64, Error> {
     let fee_percentiles = bitcoin_get_current_fee_percentiles(&GetCurrentFeePercentilesRequest {
-        network: IC_NETWORK,
+        network: ic_network(),
     })
     .await?;
 
@@ -285,7 +296,7 @@ where
             .unwrap();
 
         let signature = signer(
-            KEY_NAME.to_string(),
+            read_key_name(),
             derivation_path.clone(),
             sighash.as_byte_array().to_vec(),
         )
