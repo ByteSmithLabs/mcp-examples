@@ -1,8 +1,7 @@
 use candid::{Nat, Principal};
 use ic_cdk::{init, query, update};
 use ic_http_certification::{HttpRequest, HttpResponse, StatusCode};
-use ic_rmcp::{Handler, Server};
-use rmcp::{handler::server::tool::schema_for_type, model::*, Error};
+use ic_rmcp::{model::*, schema_for_type, Error, Handler, Server};
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{from_value, Value};
