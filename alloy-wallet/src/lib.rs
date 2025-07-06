@@ -37,8 +37,9 @@ pub struct InitArg {
 
 #[init]
 fn init(args: InitArg) {
-    MODE.with_borrow_mut(|key| *key = args.mode);
+    MODE.with_borrow_mut(|mode| *mode = args.mode);
     API_KEY.with_borrow_mut(|key| *key = args.api_key);
+    KEY_NAME.with_borrow_mut(|key_name| *key_name = args.key_name);
 }
 
 pub fn read_mode() -> Mode {

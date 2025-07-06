@@ -6,7 +6,7 @@ This MCP server enables token transfers and balance queries for ICRC-1 tokens on
 ```bash
 dfx deploy token-transferring --argument '("YOUR_API_KEY")' --mode install
 ```
-After deployment on local network or playground/mainnet, you can access it at: `https://<CANISTER_ID>.icp0.io/mcp` (for playground) or `https://<CANISTER_ID>.localhost:<BINDING_PORT>/mcp` (for local).
+After deployment on local network or playground/mainnet, you can access it at: `https://<CANISTER_ID>.icp0.io/mcp` (for playground/mainnet) or `https://<CANISTER_ID>.localhost:<BINDING_PORT>/mcp` (for local).
 
 ## Tools
 
