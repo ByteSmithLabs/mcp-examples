@@ -6,7 +6,7 @@ use ic_cdk::management_canister::{
 use solana_pubkey::Pubkey;
 
 mod sol_rpc;
-use base64::engine::general_purpose::STANDARD;
+use base64::{engine::general_purpose::STANDARD};
 use base64::Engine;
 use bincode::serialize;
 use candid::Principal;
@@ -23,9 +23,14 @@ use solana_program::system_instruction;
 use solana_signature::Signature;
 use solana_transaction::Transaction;
 use std::str::FromStr;
+use crate::{read_key_name, read_mode, Mode};
 
-const KEY_NAME: &str = "dfx_test_key";
-const RPC_SOURCES: RpcSources = RpcSources::Default(SolanaCluster::Devnet);
+fn rpc_sources() -> RpcSources {
+    match read_mode() {
+        Mode::Test => RpcSources::Default(SolanaCluster::Devnet),
+        Mode::Production => RpcSources::Default(SolanaCluster::Mainnet)
+    }
+}
 
 pub async fn get_address() -> Result<String, Error> {
     Ok(bs58::encode(Pubkey::try_from(public_key().await?.as_slice())?).into_string())
@@ -36,7 +41,7 @@ pub async fn get_balance(address: String) -> Result<u64, Error> {
 
     let result = service
         .get_balance(
-            RPC_SOURCES,
+            rpc_sources(),
             Some(RpcConfig {
                 responseConsensus: Some(ConsensusStrategy::Equality),
                 responseSizeEstimate: None,
@@ -66,7 +71,7 @@ async fn public_key() -> Result<Vec<u8>, Error> {
         derivation_path: vec![],
         key_id: SchnorrKeyId {
             algorithm: SchnorrAlgorithm::Ed25519,
-            name: KEY_NAME.to_string(),
+            name: read_key_name(),
         },
     })
     .await?
@@ -101,7 +106,7 @@ pub async fn transfer(address: String, amount: u64) -> Result<String, Error> {
 
     let response = service
         .send_transaction(
-            RPC_SOURCES,
+            rpc_sources(),
             Some(RpcConfig {
                 responseConsensus: Some(ConsensusStrategy::Equality),
                 responseSizeEstimate: None,
@@ -135,7 +140,7 @@ async fn sign_message(message: &Message) -> Result<Signature, Error> {
             derivation_path: vec![],
             key_id: SchnorrKeyId {
                 algorithm: SchnorrAlgorithm::Ed25519,
-                name: KEY_NAME.to_string(),
+                name: read_key_name(),
             },
             aux: None,
         })
@@ -150,7 +155,7 @@ async fn get_slot() -> Result<u64, Error> {
 
     let result = service
         .get_slot(
-            RPC_SOURCES,
+            rpc_sources(),
             Some(GetSlotRpcConfig {
                 roundingError: None,
                 responseConsensus: Some(ConsensusStrategy::Equality),
@@ -179,7 +184,7 @@ async fn get_blockhash(slot: u64) -> Result<String, Error> {
 
     let result = service
         .get_block(
-            RPC_SOURCES,
+            rpc_sources(),
             Some(RpcConfig {
                 responseConsensus: Some(ConsensusStrategy::Equality),
                 responseSizeEstimate: None,

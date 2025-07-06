@@ -15,18 +15,35 @@ use ic_secp256k1::RecoveryId;
 mod evm_rpc;
 use evm_rpc::{
     BlockTag, EthSepoliaService, GetTransactionCountArgs, GetTransactionCountResult,
-    MultiGetTransactionCountResult, RpcService, RpcServices, Service,
+    MultiGetTransactionCountResult, RpcService, RpcServices, Service,EthMainnetService
 };
 use num::{BigUint, Num};
 use serde_json::{from_str, Value};
+use crate::{read_key_name, read_mode, Mode};
 
-const RPCSERVICE: RpcService = RpcService::EthSepolia(EthSepoliaService::PublicNode);
-fn rpc_services() -> RpcServices {
-    RpcServices::EthSepolia(Some(vec![EthSepoliaService::PublicNode]))
+
+fn rpc_service() -> RpcService {
+    match read_mode() {
+        Mode::Test => RpcService::EthSepolia(EthSepoliaService::PublicNode),
+        Mode::Production => RpcService::EthMainnet(EthMainnetService::Cloudflare)
+    }
 }
+
+fn rpc_services() -> RpcServices {
+    match read_mode() {
+        Mode::Test =>    RpcServices::EthSepolia(Some(vec![EthSepoliaService::PublicNode])),
+        Mode::Production => RpcServices::EthMainnet(None)
+    }
+}
+
+fn chain_id() -> u64 {
+    match read_mode() {
+        Mode::Test =>    11155111,
+        Mode::Production => 1, 
+    } 
+}
+
 const DERIVATION_PATH: [[u8; 0]; 0] = [];
-const KEY_NAME: &str = "dfx_test_key";
-const CHAIN_ID: u64 = 11155111;
 
 pub async fn get_address() -> Result<String, Error> {
     let key = PublicKey::from_sec1_bytes(public_key().await?.as_slice())?;
@@ -46,7 +63,7 @@ pub async fn transfer(to: String, amount: u128) -> Result<String, Error> {
     use alloy_eips::eip2718::Encodable2718;
 
     let transaction = TxEip1559 {
-        chain_id: CHAIN_ID,
+        chain_id: chain_id(),
         nonce: nat_to_u64(
             get_transaction_count(get_address().await?.clone(), BlockTag::Latest).await?,
         ),
@@ -112,7 +129,7 @@ async fn sign(message_hash: [u8; 32]) -> Result<([u8; 64], RecoveryId), Error> {
         derivation_path: DERIVATION_PATH.iter().map(|row| row.to_vec()).collect(),
         key_id: EcdsaKeyId {
             curve: EcdsaCurve::Secp256k1,
-            name: KEY_NAME.to_string(),
+            name: read_key_name(),
         },
     })
     .await?;
@@ -129,7 +146,7 @@ async fn sign(message_hash: [u8; 32]) -> Result<([u8; 64], RecoveryId), Error> {
 }
 
 pub async fn get_balance(address: String) -> Result<Nat, Error> {
-    let hex_balance:Value  = from_str(&Service(Principal::from_text("7hfb6-caaaa-aaaar-qadga-cai").unwrap()).request(&RPCSERVICE, &format!(
+    let hex_balance:Value  = from_str(&Service(Principal::from_text("7hfb6-caaaa-aaaar-qadga-cai").unwrap()).request(&rpc_service(), &format!(
         r#"{{ "jsonrpc": "2.0", "method": "eth_getBalance", "params": ["{address}", "latest"], "id": 1 }}"#
     ).to_string(), &500_u64, 2000000000).await.map_err(|err| anyhow!(format!("{:?}", err)))?.0.map_err(|err| anyhow!(format!("{:?}", err)))?)?;
 
@@ -149,7 +166,7 @@ async fn public_key() -> Result<Vec<u8>, Error> {
         derivation_path: DERIVATION_PATH.iter().map(|row| row.to_vec()).collect(),
         key_id: EcdsaKeyId {
             curve: EcdsaCurve::Secp256k1,
-            name: KEY_NAME.to_string(),
+            name: read_key_name(),
         },
     })
     .await?
