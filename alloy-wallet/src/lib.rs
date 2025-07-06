@@ -1,3 +1,4 @@
+use candid::CandidType;
 use ic_cdk::{init, query, update};
 use ic_http_certification::{HttpRequest, HttpResponse, StatusCode};
 use ic_rmcp::{Handler, Server};
@@ -13,13 +14,40 @@ use bitcoin::{get_balance, get_p2pkh_address, send_from_p2pkh_address};
 mod ethereum;
 use ethereum::{get_address, transfer};
 
+mod solana;
+
 thread_local! {
+    static KEY_NAME : RefCell<String> = const {RefCell::new(String::new())} ;
+    static MODE : RefCell<Mode> = const {RefCell::new(Mode::Test)} ;
     static API_KEY : RefCell<String> = const {RefCell::new(String::new())} ;
 }
 
+#[derive(CandidType, Deserialize, Debug, PartialEq, Eq, Clone)]
+pub enum Mode {
+    Test,
+    Production,
+}
+
+#[derive(CandidType, Deserialize, Debug, PartialEq, Eq)]
+pub struct InitArg {
+    mode: Mode,
+    api_key: String,
+    key_name: String,
+}
+
 #[init]
-fn init(api_key: String) {
-    API_KEY.with_borrow_mut(|key| *key = api_key)
+fn init(args: InitArg) {
+    MODE.with_borrow_mut(|mode| *mode = args.mode);
+    API_KEY.with_borrow_mut(|key| *key = args.api_key);
+    KEY_NAME.with_borrow_mut(|key_name| *key_name = args.key_name);
+}
+
+pub fn read_mode() -> Mode {
+    MODE.with_borrow(|mode| (*mode).clone())
+}
+
+pub fn read_key_name() -> String {
+    KEY_NAME.with_borrow(|key_name| (*key_name).clone())
 }
 
 struct AlloyWallet;
@@ -77,8 +105,14 @@ impl Handler for AlloyWallet {
                         ))
                         .into_contents(),
                     )),
-                    Chain::Solana => Ok(CallToolResult::error(
-                        Content::text("Unimplemented.").into_contents(),
+                    Chain::Solana => Ok(CallToolResult::success(
+                        Content::text(format!(
+                            "The Solana address of the server is: {}",
+                            solana::get_address()
+                                .await
+                                .map_err(|err| Error::internal_error(format!("{err:?}"), None))?
+                        ))
+                        .into_contents(),
                     )),
                 }
             }
@@ -108,8 +142,14 @@ impl Handler for AlloyWallet {
                         ))
                         .into_contents(),
                     )),
-                    Chain::Solana => Ok(CallToolResult::error(
-                        Content::text("Unimplemented.").into_contents(),
+                    Chain::Solana => Ok(CallToolResult::success(
+                        Content::text(format!(
+                            "The Solana balance is: {} lamport.",
+                            solana::get_balance(args.address)
+                                .await
+                                .map_err(|err| Error::internal_error(format!("{err:?}"), None))?
+                        ))
+                        .into_contents(),
                     )),
                 }
             }
@@ -139,7 +179,13 @@ impl Handler for AlloyWallet {
                         .into_contents(),
                     )),
                     Chain::Solana => Ok(CallToolResult::error(
-                        Content::text("Unimplemented.").into_contents(),
+                        Content::text(format!(
+                            "Success! The transaction signature is {}",
+                            solana::transfer(args.destination_address, args.amount as u64)
+                                .await
+                                .map_err(|err| Error::internal_error(format!("{err:?}"), None))?
+                        ))
+                        .into_contents(),
                     )),
                 }
             }
@@ -162,7 +208,7 @@ impl Handler for AlloyWallet {
                 ),
                 Tool::new(
                     "transfer",
-                    "Transfer assets (coin/token) from the server address to a given address on a specified chain. For Bitcoin, the amount is in the unit of Satoshi. For Ethereum, it's Wei. For Solana, it's Lamport.",
+                    "Transfer assets (coin/token) from the server address to a given address on a specified chain. For Bitcoin, the amount is in the unit of Satoshi. For Ethereum, it's Wei.",
                     schema_for_type::<TransferRequest>(),
                 )
             ],

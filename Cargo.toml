@@ -1,3 +1,14 @@
 [workspace]
 members = ["token-transferring", "transaction-history", "alloy-wallet"]
 resolver = "2"
+
+
+[patch.crates-io]
+solana-pubkey = { git = "https://github.com/dfinity/agave", tag = "323039e-js-feature-flag" }
+solana-transaction = { git = "https://github.com/dfinity/agave", tag = "323039e-js-feature-flag" }
+solana-program = { git = "https://github.com/dfinity/agave", tag = "323039e-js-feature-flag" }
+solana-message = { git = "https://github.com/dfinity/agave", tag = "323039e-js-feature-flag" }
+solana-instruction = { git = "https://github.com/dfinity/agave", tag = "323039e-js-feature-flag" }
+solana-system-interface = { git = "https://github.com/dfinity/solana-system-program", tag = "6185b40-js-feature-flag" }
+solana-hash = { git = "https://github.com/dfinity/agave", tag = "323039e-js-feature-flag" }
+solana-signature = { git = "https://github.com/dfinity/agave", tag = "323039e-js-feature-flag" }
