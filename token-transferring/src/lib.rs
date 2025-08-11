@@ -1,12 +1,13 @@
 use ic_cdk::api;
 use ic_cdk::{init, query, update};
 use ic_http_certification::{HttpRequest, HttpResponse, StatusCode};
-use ic_rmcp::{model::*, schema_for_type, Context, Error, Handler, Server};
+use ic_rmcp::{model::*, schema_for_type, Context, Error, Handler, Server, IssuerConfig, OAuthConfig};
 use rust_decimal::Decimal;
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{from_value, Value};
 use std::cell::RefCell;
+use candid::CandidType;
 
 use crate::ledger::{Account, Service, TransferArg};
 use candid::{Nat, Principal};
@@ -15,11 +16,21 @@ mod ledger;
 
 thread_local! {
     static TOKENS: RefCell<Vec<(String, String, u8)>> = const{RefCell::new(Vec::new())};
-    static API_KEY : RefCell<String> = const {RefCell::new(String::new())} ;
+    static ARGS : RefCell<InitArgs> =  RefCell::default();
+}
+
+#[derive(Deserialize, CandidType, Default)]
+struct InitArgs {
+    metadata_url: String,
+    resource: String,
+    issuer: String,
+    jwks_url: String,
+    authorization_server: Vec<String>,
+    audience: String,
 }
 
 #[init]
-fn init(api_key: String) {
+fn init(config: InitArgs) {
     TOKENS.with_borrow_mut(|tokens| {
         tokens.push((
             "ICP".to_string(),
@@ -43,7 +54,7 @@ fn init(api_key: String) {
         ))
     });
 
-    API_KEY.with_borrow_mut(|key| *key = api_key)
+    ARGS.with_borrow_mut(|args| *args = config);
 }
 
 struct TokenTransferring;
@@ -248,11 +259,20 @@ fn http_request(_: HttpRequest) -> HttpResponse {
 #[update]
 async fn http_request_update(req: HttpRequest<'_>) -> HttpResponse<'_> {
     TokenTransferring {}
-        .handle(&req, |headers| {
-            headers
-                .iter()
-                .any(|(k, v)| k == "x-api-key" && *v == API_KEY.with_borrow(|k| k.clone()))
-        })
+        .handle_with_oauth(
+            &req,
+            ARGS.with_borrow(|args| OAuthConfig {
+                metadata_url: args.metadata_url.clone(),
+                resource: args.resource.clone(),
+                issuer_configs: IssuerConfig {
+                    issuer: args.issuer.clone(),
+                    jwks_url: args.jwks_url.clone(),
+                    authorization_server: args.authorization_server.clone(),
+                    audience: args.audience.clone(),
+                },
+                scopes_supported: vec![],
+            }),
+        )
         .await
 }
 

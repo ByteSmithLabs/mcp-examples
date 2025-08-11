@@ -1,12 +1,8 @@
 # ICRC-1 Token Transfer (showcase purpose only)
 
-This MCP server enables token transfers and balance queries for ICRC-1 tokens on the Internet Computer blockchain. It provides tools to manage and transfer tokens from the server's account and to retrieve information about supported tokens.
+This MCP server enables token transfers and balance queries for ICRC-1 tokens on the Internet Computer blockchain. It provides tools to manage and transfer tokens from the user's account and to retrieve information about supported tokens.
 
-## Deployment:
-```bash
-dfx deploy token-transferring --argument '("YOUR_API_KEY")' --mode install
-```
-After deployment on local network or playground/mainnet, you can access it at: `https://<CANISTER_ID>.icp0.io/mcp` (for playground/mainnet) or `https://<CANISTER_ID>.localhost:<BINDING_PORT>/mcp` (for local).
+This is a multi-user MCP server. Authentication by OAuth. Each user controls an subaccount under the canister principal. Users prove their ownership over the subaccount through the identity granted by the authorization server. This ensures no violation occurs when one user tries to penetrate another user's sub-account.
 
 ## Tools
 
