@@ -1,7 +1,7 @@
 use candid::{Nat, Principal};
 use ic_cdk::{init, query, update};
 use ic_http_certification::{HttpRequest, HttpResponse, StatusCode};
-use ic_rmcp::{model::*, schema_for_type, Error, Handler, Server};
+use ic_rmcp::{model::*, schema_for_type, Context, Error, Handler, Server};
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{from_value, Value};
@@ -28,7 +28,7 @@ struct GetTransactionHistoryRequest {
 struct TransactionHistory;
 
 impl Handler for TransactionHistory {
-    fn get_info(&self) -> ServerInfo {
+    fn get_info(&self, _: Context) -> ServerInfo {
         ServerInfo {
             capabilities: ServerCapabilities::builder().enable_tools().build(),
             server_info: Implementation {
@@ -40,7 +40,11 @@ impl Handler for TransactionHistory {
         }
     }
 
-    async fn list_tools(&self, _: Option<PaginatedRequestParam>) -> Result<ListToolsResult, Error> {
+    async fn list_tools(
+        &self,
+        _: Context,
+        _: Option<PaginatedRequestParam>,
+    ) -> Result<ListToolsResult, Error> {
         Ok(ListToolsResult {
             next_cursor: None,
             tools: vec![
@@ -53,7 +57,11 @@ impl Handler for TransactionHistory {
         })
     }
 
-    async fn call_tool(&self, request: CallToolRequestParam) -> Result<CallToolResult, Error> {
+    async fn call_tool(
+        &self,
+        _: Context,
+        request: CallToolRequestParam,
+    ) -> Result<CallToolResult, Error> {
         match request.name.as_ref() {
             "get_transaction_history" => {
                 let request = from_value::<GetTransactionHistoryRequest>(Value::Object(
@@ -107,7 +115,7 @@ fn http_request(_: HttpRequest) -> HttpResponse {
 #[update]
 async fn http_request_update(req: HttpRequest<'_>) -> HttpResponse {
     TransactionHistory {}
-        .handle_with_auth(&req, |headers| {
+        .handle(&req, |headers| {
             headers
                 .iter()
                 .any(|(k, v)| k == "x-api-key" && *v == API_KEY.with_borrow(|k| k.clone()))

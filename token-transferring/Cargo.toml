@@ -13,7 +13,7 @@ crate-type = ["cdylib"]
 candid = "0.10"
 ic-cdk = "0.18.0"
 ic-http-certification = "3.0.3"
-ic-rmcp = {git = "https://github.com/ByteSmithLabs/ic-rmcp", tag = "v0.1.0"}
+ic-rmcp = {git = "https://github.com/ByteSmithLabs/ic-rmcp", tag = "v0.2.0"}
 serde = "1.0.219"
 serde_bytes = "0.11.17"
 schemars = "0.8.22"
