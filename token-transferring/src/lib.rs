@@ -201,7 +201,7 @@ impl Handler for TokenTransferring {
 
                 Ok(CallToolResult::success(
                     Content::text(format!(
-                        "Canister principal: {}",
+                        "Address: {}",
                         Account {
                             owner: api::canister_self(),
                             subaccount: Some(subaccount),
