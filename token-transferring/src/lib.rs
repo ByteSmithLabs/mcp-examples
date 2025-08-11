@@ -7,7 +7,10 @@ use ic_rmcp::{
     model::*, schema_for_type, Context, Error, Handler, IssuerConfig, OAuthConfig, Server,
 };
 use icrc_ledger_client::ICRC1Client;
-use icrc_ledger_types::icrc1::{account::Account, transfer::TransferArg};
+use icrc_ledger_types::icrc1::{
+    account::{principal_to_subaccount, Account},
+    transfer::TransferArg,
+};
 use rust_decimal::Decimal;
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -72,7 +75,6 @@ struct TransferRequest {
 
 #[derive(JsonSchema, Deserialize)]
 struct GetBalanceRequest {
-    owner: Option<String>,
     ledger_canister_id: String,
 }
 
@@ -85,7 +87,7 @@ struct AddTokenRequest {
 impl Handler for TokenTransferring {
     async fn call_tool(
         &self,
-        _: Context,
+        context: Context,
         req: CallToolRequestParam,
     ) -> Result<CallToolResult, Error> {
         match req.name.as_ref() {
@@ -113,18 +115,19 @@ impl Handler for TokenTransferring {
                     .await
                     .map_err(|err| Error::internal_error(format!("{err:?}"), None))?;
 
-                let owner = if let Some(own_text) = request.owner {
-                    Principal::from_text(own_text).map_err(|_| {
-                        Error::invalid_params("invalid arguments to tool get_balance", None)
-                    })?
-                } else {
-                    api::canister_self()
-                };
+                let subject = context
+                    .subject
+                    .ok_or(Error::internal_error("no subject".to_string(), None))?;
+
+                let subaccount = principal_to_subaccount(
+                    Principal::from_text(subject)
+                        .map_err(|err| Error::internal_error(format!("{err:?}"), None))?,
+                );
 
                 let balance = client
                     .balance_of(Account {
-                        owner,
-                        subaccount: None,
+                        owner: api::canister_self(),
+                        subaccount: Some(subaccount),
                     })
                     .await
                     .map_err(|err| Error::internal_error(format!("{err:?}"), None))?;
@@ -157,6 +160,15 @@ impl Handler for TokenTransferring {
                         .map_err(|_| Error::invalid_params("invalid ledger canister id", None))?,
                 };
 
+                let subject = context
+                    .subject
+                    .ok_or(Error::internal_error("no subject".to_string(), None))?;
+
+                let subaccount = principal_to_subaccount(
+                    Principal::from_text(subject)
+                        .map_err(|err| Error::internal_error(format!("{err:?}"), None))?,
+                );
+
                 let _ = client
                     .transfer(TransferArg {
                         to: Account {
@@ -165,7 +177,7 @@ impl Handler for TokenTransferring {
                         },
                         fee: None,
                         memo: None,
-                        from_subaccount: None,
+                        from_subaccount: Some(subaccount),
                         created_at_time: None,
                         amount: Nat::from(req.amount),
                     })
@@ -177,7 +189,8 @@ impl Handler for TokenTransferring {
                     Content::text("Success").into_contents(),
                 ))
             }
-            "get_principal" => Ok(CallToolResult::success(
+            "get_account_address" => Ok(CallToolResult::success(
+                //TODO: fix here
                 Content::text(format!("Canister principal: {}", api::canister_self()))
                     .into_contents(),
             )),
@@ -222,13 +235,13 @@ impl Handler for TokenTransferring {
             tools: vec![
                 Tool::new(
                     "get_balance",
-                    "Get ICRC-1 token balance for the given account. It accepts two parameters: textual principal and ledger canister ID. If principal is empty, default to canister (server) account.",
+                    "Get ICRC-1 token balance for your account. The subaccount will be derived from user's authenticated identity.",
                     schema_for_type::<GetBalanceRequest>(),
                 ),
                 Tool::new("transfer",
-                 "Transfer ICRC-1 token from the canister (server) account to the given destination principal. The unit is in decimal format. For example, to transfer 1.5 ICP, you should pass 150000000 as amount. To get decimals value, use get_supported_tokens tool.",
+                 "Transfer ICRC-1 token from your account to the given destination principal. The unit is in decimal format. For example, to transfer 1.5 ICP, you should pass 150000000 as amount. To get decimals value, use get_supported_tokens tool.",
                 schema_for_type::<TransferRequest>()),
-                Tool::new("get_principal", "Get the canister (server) default account in textual principal. Use this tool when you need to top up ICRC-1 token to your canister (server).", schema_for_type::<EmptyObject>()),
+                Tool::new("get_account_address", "Get your address. Basically, it consists of a subaccount mapped from authenticated identity, under the server principal. Use this tool when you need to top up ICRC-1 token to your account.", schema_for_type::<EmptyObject>()),
                 Tool::new("add_token", "Add new token to token list.", schema_for_type::<AddTokenRequest>()),
                 Tool::new("get_supported_tokens", "Return a list of supported tokens. Use this when retrieving token's ledger canister ID and its decimals.", schema_for_type::<EmptyObject>())
             ],
@@ -243,8 +256,8 @@ impl Handler for TokenTransferring {
             },
             instructions: Some(
                 r"
-            This server provides tools to transfer ICRC-1 tokens from the canister account (default 
-            account; represented by the server) to destination account.
+            This server provides tools to transfer ICRC-1 tokens user's account to destination account.
+            Each user will control a subaccount under canister (server) principal. 
             "
                 .to_string(),
             ),
