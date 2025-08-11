@@ -1,18 +1,22 @@
+use candid::CandidType;
+use candid::{Nat, Principal};
 use ic_cdk::api;
 use ic_cdk::{init, query, update};
 use ic_http_certification::{HttpRequest, HttpResponse, StatusCode};
-use ic_rmcp::{model::*, schema_for_type, Context, Error, Handler, Server, IssuerConfig, OAuthConfig};
+use ic_rmcp::{
+    model::*, schema_for_type, Context, Error, Handler, IssuerConfig, OAuthConfig, Server,
+};
+use icrc_ledger_client::ICRC1Client;
+use icrc_ledger_types::icrc1::{account::Account, transfer::TransferArg};
 use rust_decimal::Decimal;
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{from_value, Value};
 use std::cell::RefCell;
-use candid::CandidType;
 
-use crate::ledger::{Account, Service, TransferArg};
-use candid::{Nat, Principal};
+mod runtime;
 
-mod ledger;
+use runtime::CdkRuntime;
 
 thread_local! {
     static TOKENS: RefCell<Vec<(String, String, u8)>> = const{RefCell::new(Vec::new())};
@@ -93,18 +97,19 @@ impl Handler for TokenTransferring {
                     Error::invalid_params("invalid arguments to tool get_balance", None)
                 })?;
 
-                let ledger = Service(
-                    Principal::from_text(request.ledger_canister_id)
+                let client = ICRC1Client {
+                    runtime: CdkRuntime,
+                    ledger_canister_id: Principal::from_text(request.ledger_canister_id)
                         .map_err(|_| Error::invalid_params("invalid ledger canister id", None))?,
-                );
+                };
 
-                let (symbol,) = ledger
-                    .icrc_1_symbol()
+                let symbol = client
+                    .symbol()
                     .await
                     .map_err(|err| Error::internal_error(format!("{err:?}"), None))?;
 
-                let (decimals,) = ledger
-                    .icrc_1_decimals()
+                let decimals = client
+                    .decimals()
                     .await
                     .map_err(|err| Error::internal_error(format!("{err:?}"), None))?;
 
@@ -116,8 +121,8 @@ impl Handler for TokenTransferring {
                     api::canister_self()
                 };
 
-                let balance = ledger
-                    .icrc_1_balance_of(&Account {
+                let balance = client
+                    .balance_of(Account {
                         owner,
                         subaccount: None,
                     })
@@ -128,7 +133,7 @@ impl Handler for TokenTransferring {
                     Content::text(format!(
                         "The balance is {} {}",
                         Decimal::from_i128_with_scale(
-                            i128::try_from(balance.0 .0).unwrap(),
+                            i128::try_from(balance.0).unwrap(),
                             decimals as u32
                         ),
                         symbol
@@ -146,13 +151,14 @@ impl Handler for TokenTransferring {
                     Error::invalid_params("invalid principal in tool transfer", None)
                 })?;
 
-                let ledger = Service(
-                    Principal::from_text(req.ledger_canister_id)
+                let client = ICRC1Client {
+                    runtime: CdkRuntime,
+                    ledger_canister_id: Principal::from_text(req.ledger_canister_id)
                         .map_err(|_| Error::invalid_params("invalid ledger canister id", None))?,
-                );
+                };
 
-                let _ = ledger
-                    .icrc_1_transfer(&TransferArg {
+                let _ = client
+                    .transfer(TransferArg {
                         to: Account {
                             owner: recipiant,
                             subaccount: None,
@@ -165,7 +171,6 @@ impl Handler for TokenTransferring {
                     })
                     .await
                     .map_err(|err| Error::internal_error(format!("{err:?}"), None))?
-                    .0
                     .map_err(|err| Error::internal_error(format!("{err:?}"), None))?;
 
                 Ok(CallToolResult::success(
@@ -182,16 +187,16 @@ impl Handler for TokenTransferring {
                 )?))
                 .map_err(|_| Error::invalid_params("invalid arguments to tool add_token", None))?;
 
-                let ledger = Service(
-                    Principal::from_text(&request.ledger_canister_id)
+                let client = ICRC1Client {
+                    runtime: CdkRuntime,
+                    ledger_canister_id: Principal::from_text(request.ledger_canister_id.clone())
                         .map_err(|_| Error::invalid_params("invalid ledger canister id", None))?,
-                );
+                };
 
-                let decimals = ledger
-                    .icrc_1_decimals()
+                let decimals = client
+                    .decimals()
                     .await
-                    .map_err(|err| Error::internal_error(format!("{err:?}"), None))?
-                    .0;
+                    .map_err(|err| Error::internal_error(format!("{err:?}"), None))?;
 
                 TOKENS.with_borrow_mut(|tokens| {
                     tokens.push((request.name, request.ledger_canister_id, decimals));
