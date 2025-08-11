@@ -189,11 +189,27 @@ impl Handler for TokenTransferring {
                     Content::text("Success").into_contents(),
                 ))
             }
-            "get_account_address" => Ok(CallToolResult::success(
-                //TODO: fix here
-                Content::text(format!("Canister principal: {}", api::canister_self()))
+            "get_account_address" => {
+                let subject = context
+                    .subject
+                    .ok_or(Error::internal_error("no subject".to_string(), None))?;
+
+                let subaccount = principal_to_subaccount(
+                    Principal::from_text(subject)
+                        .map_err(|err| Error::internal_error(format!("{err:?}"), None))?,
+                );
+
+                Ok(CallToolResult::success(
+                    Content::text(format!(
+                        "Canister principal: {}",
+                        Account {
+                            owner: api::canister_self(),
+                            subaccount: Some(subaccount),
+                        }
+                    ))
                     .into_contents(),
-            )),
+                ))
+            }
             "add_token" => {
                 let request = from_value::<AddTokenRequest>(Value::Object(req.arguments.ok_or(
                     Error::invalid_params("invalid arguments to tool add_token", None),
