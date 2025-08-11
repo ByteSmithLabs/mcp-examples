@@ -1,7 +1,7 @@
 use ic_cdk::api;
 use ic_cdk::{init, query, update};
 use ic_http_certification::{HttpRequest, HttpResponse, StatusCode};
-use ic_rmcp::{model::*, schema_for_type, Error, Handler, Server};
+use ic_rmcp::{model::*, schema_for_type, Context, Error, Handler, Server};
 use rust_decimal::Decimal;
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -68,7 +68,11 @@ struct AddTokenRequest {
 }
 
 impl Handler for TokenTransferring {
-    async fn call_tool(&self, req: CallToolRequestParam) -> Result<CallToolResult, Error> {
+    async fn call_tool(
+        &self,
+        _: Context,
+        req: CallToolRequestParam,
+    ) -> Result<CallToolResult, Error> {
         match req.name.as_ref() {
             "get_balance" => {
                 let request = from_value::<GetBalanceRequest>(Value::Object(req.arguments.ok_or(
@@ -192,7 +196,11 @@ impl Handler for TokenTransferring {
             _ => Err(Error::invalid_params("not found tool", None)),
         }
     }
-    async fn list_tools(&self, _: Option<PaginatedRequestParam>) -> Result<ListToolsResult, Error> {
+    async fn list_tools(
+        &self,
+        _: Context,
+        _: Option<PaginatedRequestParam>,
+    ) -> Result<ListToolsResult, Error> {
         Ok(ListToolsResult {
             next_cursor: None,
             tools: vec![
@@ -210,7 +218,7 @@ impl Handler for TokenTransferring {
             ],
         })
     }
-    fn get_info(&self) -> ServerInfo {
+    fn get_info(&self, _: Context) -> ServerInfo {
         ServerInfo {
             capabilities: ServerCapabilities::builder().enable_tools().build(),
             server_info: Implementation {
@@ -238,9 +246,9 @@ fn http_request(_: HttpRequest) -> HttpResponse {
 }
 
 #[update]
-async fn http_request_update(req: HttpRequest<'_>) -> HttpResponse {
+async fn http_request_update(req: HttpRequest<'_>) -> HttpResponse<'_> {
     TokenTransferring {}
-        .handle_with_auth(&req, |headers| {
+        .handle(&req, |headers| {
             headers
                 .iter()
                 .any(|(k, v)| k == "x-api-key" && *v == API_KEY.with_borrow(|k| k.clone()))

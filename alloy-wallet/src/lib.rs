@@ -1,7 +1,7 @@
 use candid::CandidType;
 use ic_cdk::{init, query, update};
 use ic_http_certification::{HttpRequest, HttpResponse, StatusCode};
-use ic_rmcp::{model::*, schema_for_type, Error, Handler, Server};
+use ic_rmcp::{model::*, schema_for_type, Context, Error, Handler, Server};
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{from_value, Value};
@@ -77,7 +77,11 @@ struct TransferRequest {
 }
 
 impl Handler for AlloyWallet {
-    async fn call_tool(&self, req: CallToolRequestParam) -> Result<CallToolResult, Error> {
+    async fn call_tool(
+        &self,
+        _: Context,
+        req: CallToolRequestParam,
+    ) -> Result<CallToolResult, Error> {
         match req.name.as_ref() {
             "get_address" => {
                 match from_value::<GetAddressRequest>(Value::Object(req.arguments.ok_or(
@@ -191,7 +195,11 @@ impl Handler for AlloyWallet {
             _ => Err(Error::invalid_params("not found tool", None)),
         }
     }
-    async fn list_tools(&self, _: Option<PaginatedRequestParam>) -> Result<ListToolsResult, Error> {
+    async fn list_tools(
+        &self,
+        _: Context,
+        _: Option<PaginatedRequestParam>,
+    ) -> Result<ListToolsResult, Error> {
         Ok(ListToolsResult {
             next_cursor: None,
             tools: vec![
@@ -213,7 +221,7 @@ impl Handler for AlloyWallet {
             ],
         })
     }
-    fn get_info(&self) -> ServerInfo {
+    fn get_info(&self, _: Context) -> ServerInfo {
         ServerInfo {
             capabilities: ServerCapabilities::builder().enable_tools().build(),
             server_info: Implementation {
@@ -241,9 +249,9 @@ fn http_request(_: HttpRequest) -> HttpResponse {
 }
 
 #[update]
-async fn http_request_update(req: HttpRequest<'_>) -> HttpResponse {
+async fn http_request_update(req: HttpRequest<'_>) -> HttpResponse<'_> {
     AlloyWallet {}
-        .handle_with_auth(&req, |headers| {
+        .handle(&req, |headers| {
             headers
                 .iter()
                 .any(|(k, v)| k == "x-api-key" && *v == API_KEY.with_borrow(|k| k.clone()))
@@ -252,8 +260,3 @@ async fn http_request_update(req: HttpRequest<'_>) -> HttpResponse {
 }
 
 ic_cdk::export_candid!();
-
-getrandom::register_custom_getrandom!(always_fail);
-pub fn always_fail(_buf: &mut [u8]) -> Result<(), getrandom::Error> {
-    Err(getrandom::Error::UNSUPPORTED)
-}
