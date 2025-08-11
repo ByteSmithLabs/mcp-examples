@@ -249,7 +249,7 @@ fn http_request(_: HttpRequest) -> HttpResponse {
 }
 
 #[update]
-async fn http_request_update(req: HttpRequest<'_>) -> HttpResponse {
+async fn http_request_update(req: HttpRequest<'_>) -> HttpResponse<'_> {
     AlloyWallet {}
         .handle(&req, |headers| {
             headers
