@@ -1,0 +1,19 @@
+[package]
+name = "odd-even"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+candid = "0.10"
+ic-cdk = "0.18.0"
+ic-http-certification = "3.0.3"
+ic-rmcp = {git = "https://github.com/ByteSmithLabs/ic-rmcp", tag = "v0.2.0"}
+serde = "1.0.219"
+async-trait = "0.1.83"
+icrc-ledger-client = "0.1"
