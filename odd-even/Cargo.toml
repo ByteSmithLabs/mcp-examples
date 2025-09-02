@@ -17,3 +17,5 @@ ic-rmcp = {git = "https://github.com/ByteSmithLabs/ic-rmcp", tag = "v0.2.0"}
 serde = "1.0.219"
 async-trait = "0.1.83"
 icrc-ledger-client = "0.1"
+schemars = "0.8.22"
+
