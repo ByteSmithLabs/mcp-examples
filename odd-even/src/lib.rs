@@ -5,8 +5,6 @@ use ic_rmcp::{model::*, Context, Error, Handler, IssuerConfig, OAuthConfig, Serv
 use serde::Deserialize;
 use std::cell::RefCell;
 
-mod runtime;
-
 thread_local! {
     static ARGS : RefCell<InitArgs> =  RefCell::default();
 }
