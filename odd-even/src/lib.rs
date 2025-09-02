@@ -1,12 +1,9 @@
 use candid::CandidType;
 use ic_cdk::{init, query, update};
 use ic_http_certification::{HttpRequest, HttpResponse, StatusCode};
-use ic_rmcp::{
-    model::*, Context, Error, Handler, IssuerConfig, OAuthConfig, Server,
-};
+use ic_rmcp::{model::*, Context, Error, Handler, IssuerConfig, OAuthConfig, Server};
 use serde::Deserialize;
 use std::cell::RefCell;
-
 
 mod runtime;
 
@@ -35,12 +32,14 @@ impl Handler for OddEven {
     async fn call_tool(
         &self,
         _: Context,
-        req: CallToolRequestParam,
+        _: CallToolRequestParam,
     ) -> Result<CallToolResult, Error> {
-        match req.name.as_ref() {
-            // implement this
-            _ => Err(Error::invalid_params("not found tool", None)),
-        }
+        // match req.name.as_ref() {
+        //      implement this
+        //     _ => Err(Error::invalid_params("not found tool", None)),
+        // }
+
+        Err(Error::invalid_params("not found tool", None))
     }
     async fn list_tools(
         &self,
