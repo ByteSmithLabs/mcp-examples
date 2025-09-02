@@ -1,10 +1,14 @@
 use candid::CandidType;
 use ic_cdk::{init, query, update};
 use ic_http_certification::{HttpRequest, HttpResponse, StatusCode};
-use ic_rmcp::{model::*, Context, Error, Handler, IssuerConfig, OAuthConfig, Server};
+use ic_rmcp::{
+    model::*, schema_for_type, Context, Error, Handler, IssuerConfig, OAuthConfig, Server,
+};
+use schemars::JsonSchema;
 use serde::Deserialize;
 use std::cell::RefCell;
 
+// TODO: data retention!
 thread_local! {
     static ARGS : RefCell<InitArgs> =  RefCell::default();
 }
@@ -22,6 +26,16 @@ struct InitArgs {
 #[init]
 fn init(config: InitArgs) {
     ARGS.with_borrow_mut(|args| *args = config);
+}
+
+#[derive(JsonSchema, Deserialize)]
+struct StartRequest {
+    // TODO: amount
+}
+
+#[derive(JsonSchema, Deserialize)]
+struct PlayRequest {
+    // TODO: game_hash.
 }
 
 struct OddEven;
@@ -47,7 +61,25 @@ impl Handler for OddEven {
         Ok(ListToolsResult {
             next_cursor: None,
             tools: vec![
-                // Implement this
+                Tool::new(
+                    "start",
+                    // TODO: Clarify more about input and output.
+                    // Accept amount to deduct money.
+                    // Save game info.
+                    // Return game hash. Hashed from result (odd or even) + random number + created timestamp
+                    "Start a odd-even game.",
+                    schema_for_type::<StartRequest>(),
+                ),
+                Tool::new(
+                    "play",
+                    // TODO: Clarify more about input and output.
+                    // Accept game hash, retrieve game info. Check if exist.
+                    // Check timestamp.
+                    // Compare.
+                    // Disburse if needed.
+                    "Play a odd-even game.",
+                    schema_for_type::<PlayRequest>(),
+                ),
             ],
         })
     }
