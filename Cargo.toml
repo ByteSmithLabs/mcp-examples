@@ -1,5 +1,5 @@
 [workspace]
-members = ["token-transferring", "transaction-history", "alloy-wallet"]
+members = ["token-transferring", "transaction-history", "alloy-wallet", "odd-even"]
 resolver = "2"
 
 
