@@ -18,4 +18,5 @@ serde = "1.0.219"
 async-trait = "0.1.83"
 icrc-ledger-client = "0.1"
 schemars = "0.8.22"
+ic-stable-structures = "0.6.9"
 
