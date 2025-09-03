@@ -44,14 +44,19 @@ impl Handler for OddEven {
     async fn call_tool(
         &self,
         _: Context,
-        _: CallToolRequestParam,
+        req: CallToolRequestParam,
     ) -> Result<CallToolResult, Error> {
-        // match req.name.as_ref() {
-        //      implement this
-        //     _ => Err(Error::invalid_params("not found tool", None)),
-        // }
-
-        Err(Error::invalid_params("not found tool", None))
+        match req.name.as_ref() {
+            "start" => Ok(CallToolResult::success(
+                // TODO: implement this
+                Content::text("Implement this").into_contents(),
+            )),
+            "play" => Ok(CallToolResult::success(
+                // TODO: implement this
+                Content::text("Implement this").into_contents(),
+            )),
+            _ => Err(Error::invalid_params("not found tool", None)),
+        }
     }
     async fn list_tools(
         &self,
