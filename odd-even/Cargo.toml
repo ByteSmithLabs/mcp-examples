@@ -19,4 +19,7 @@ async-trait = "0.1.83"
 icrc-ledger-client = "0.1"
 schemars = "0.8.22"
 ic-stable-structures = "0.6.9"
+hex = "0.4"
+serde_json = "1.0.140"
+sha2 = "0.10"
 

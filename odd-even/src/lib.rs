@@ -1,14 +1,22 @@
 use candid::CandidType;
-use ic_cdk::{init, query, update};
+use candid::Principal;
+use hex::encode;
+use ic_cdk::{api::time, init, management_canister::raw_rand, query, update};
 use ic_http_certification::{HttpRequest, HttpResponse, StatusCode};
 use ic_rmcp::{
     model::*, schema_for_type, Context, Error, Handler, IssuerConfig, OAuthConfig, Server,
 };
 use schemars::JsonSchema;
 use serde::Deserialize;
+use serde_json::{from_value, Value};
+use sha2::{Digest, Sha256};
 use std::cell::RefCell;
 
-// TODO: data retention!
+mod repo;
+use repo::{get, insert};
+
+use crate::repo::GameInfo;
+
 thread_local! {
     static ARGS : RefCell<InitArgs> =  RefCell::default();
 }
@@ -30,12 +38,27 @@ fn init(config: InitArgs) {
 
 #[derive(JsonSchema, Deserialize)]
 struct StartRequest {
-    // TODO: amount
+    amount: u64,
+}
+
+#[derive(JsonSchema, Deserialize)]
+enum GameResult {
+    Odd,
+    Even,
+}
+
+impl std::fmt::Display for GameResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GameResult::Odd => write!(f, "Odd"),
+            GameResult::Even => write!(f, "Even"),
+        }
+    }
 }
 
 #[derive(JsonSchema, Deserialize)]
 struct PlayRequest {
-    // TODO: game_hash.
+    guess: GameResult,
 }
 
 struct OddEven;
@@ -43,18 +66,120 @@ struct OddEven;
 impl Handler for OddEven {
     async fn call_tool(
         &self,
-        _: Context,
+        context: Context,
         req: CallToolRequestParam,
     ) -> Result<CallToolResult, Error> {
         match req.name.as_ref() {
-            "start" => Ok(CallToolResult::success(
-                // TODO: implement this
-                Content::text("Implement this").into_contents(),
-            )),
-            "play" => Ok(CallToolResult::success(
-                // TODO: implement this
-                Content::text("Implement this").into_contents(),
-            )),
+            "start" => {
+                let subject = context
+                    .subject
+                    .ok_or(Error::internal_error("Invalid user", None))?;
+
+                let principal = Principal::from_text(subject)
+                    .map_err(|_| Error::internal_error("Invalid user principal", None))?;
+
+                if let Some(unfinished_game) = get(principal) {
+                    return Ok(CallToolResult::success(
+                        Content::text(format!("You can not play a new game because you have an unfinished game with game hash = {}", unfinished_game.hash)).into_contents(),
+                    ));
+                }
+
+                let request = from_value::<StartRequest>(Value::Object(req.arguments.ok_or(
+                    Error::invalid_params("invalid arguments to tool start", None),
+                )?))
+                .map_err(|_| Error::invalid_params("invalid arguments to tool start", None))?;
+
+                if request.amount < 10_000_000 || request.amount > 500_000_000 {
+                    return Ok(CallToolResult::success(
+                        Content::text("Invalid amount. Amount must be greater than 10_000_000 and less than 500_000_000").into_contents(),
+                    ));
+                }
+
+                let random_hex = match get_random_hex().await {
+                    Ok(hex) => hex,
+                    Err(err) => {
+                        eprintln!("Get random hex: {err}");
+                        return Err(Error::internal_error("Internal error", None));
+                    }
+                };
+
+                let random_result = match get_game_result().await {
+                    Ok(result) => result,
+                    Err(err) => {
+                        eprintln!("Get random game result: {err}");
+                        return Err(Error::internal_error("Internal error", None));
+                    }
+                };
+
+                let timestamp_nanos = time();
+
+                let info = GameInfo {
+                    amount: request.amount,
+                    timestamp_nanos,
+                    random_hex: random_hex.clone(),
+                    result: random_result.to_string(),
+                    hash: get_game_hash(random_result, &random_hex),
+                };
+                // TODO: take deposit
+                insert(principal, info.clone());
+                Ok(CallToolResult::success(
+                    Content::text(format!("Successfully. Your game hash is {}", info.hash))
+                        .into_contents(),
+                ))
+            }
+            "play" => {
+                let subject = context
+                    .subject
+                    .ok_or(Error::internal_error("Invalid user", None))?;
+
+                let principal = Principal::from_text(subject)
+                    .map_err(|_| Error::internal_error("Invalid user principal", None))?;
+
+                let request = from_value::<PlayRequest>(Value::Object(req.arguments.ok_or(
+                    Error::invalid_params("invalid arguments to tool `play`", None),
+                )?))
+                .map_err(|_| Error::invalid_params("invalid arguments to tool `play`", None))?;
+
+                match get(principal) {
+                    None => Ok(CallToolResult::success(
+                        Content::text(
+                            "You don't have any in-progress game. Start a game using tool `start`.",
+                        )
+                        .into_contents(),
+                    )),
+                    Some(info) => {
+                        let now = time();
+                        if now.saturating_sub(info.timestamp_nanos) > 604_800_000_000_000 {
+                            return Ok(CallToolResult::success(
+                                Content::text(format!(
+                                    "Your game has expired (hash = {}). Contact server's admin to revoke.",
+                                    info.hash
+                                ))
+                                .into_contents(),
+                            ));
+                        }
+
+                        if info.result != request.guess.to_string() {
+                            let plaintext = format!("{}|{}", info.result, info.random_hex);
+                            return Ok(CallToolResult::success(
+                                Content::text(format!(
+                                    "You lose. Plaintext used for hashing: {plaintext}"
+                                ))
+                                .into_contents(),
+                            ));
+                        }
+
+                        // TODO: disburse
+                        let plaintext = format!("{}|{}", info.result, info.random_hex);
+                        Ok(CallToolResult::success(
+                            Content::text(format!(
+                                "You win. Plaintext used for hashing: {plaintext}"
+                            ))
+                            .into_contents(),
+                        ))
+                    }
+                }
+            }
             _ => Err(Error::invalid_params("not found tool", None)),
         }
     }
@@ -68,21 +193,13 @@ impl Handler for OddEven {
             tools: vec![
                 Tool::new(
                     "start",
-                    // TODO: Clarify more about input and output.
-                    // Accept amount to deduct money.
-                    // Save game info.
-                    // Return game hash. Hashed from result (odd or even) + random number + created timestamp
-                    "Start a odd-even game.",
+                    // TODO: add hash template example.
+                    "Start a odd-even game. The amount is in ICP decimal unit. For example, if you want to bet 1 ICP, you must pass in 100_000_000 as input. Min amount: 10_000_000 (0.1 ICP), max amount: 500_000_000 (5 ICP). This tool will return the game hash, hased from the template `<GameResult>|<Random_Hex>`. To play, call tool `play`.",
                     schema_for_type::<StartRequest>(),
                 ),
                 Tool::new(
                     "play",
-                    // TODO: Clarify more about input and output.
-                    // Accept game hash, retrieve game info. Check if exist.
-                    // Check timestamp.
-                    // Compare.
-                    // Disburse if needed.
-                    "Play a odd-even game.",
+                    "Play a odd-even game. Make sure you start the game using `start` before playing.",
                     schema_for_type::<PlayRequest>(),
                 ),
             ],
@@ -132,6 +249,28 @@ async fn http_request_update(req: HttpRequest<'_>) -> HttpResponse<'_> {
             }),
         )
         .await
+}
+
+async fn get_random_hex() -> Result<String, String> {
+    let bytes = raw_rand().await.map_err(|err| err.to_string())?;
+    Ok(encode(&bytes))
+}
+
+async fn get_game_result() -> Result<GameResult, String> {
+    let bytes = raw_rand().await.map_err(|e| e.to_string())?;
+    let parity = bytes.iter().fold(0u8, |acc, &b| acc ^ b) & 1;
+    Ok(if parity == 0 {
+        GameResult::Even
+    } else {
+        GameResult::Odd
+    })
+}
+
+fn get_game_hash(result: GameResult, random_hex: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(format!("{result}|{random_hex}"));
+    let result = hasher.finalize();
+    hex::encode(result)
 }
 
 ic_cdk::export_candid!();
