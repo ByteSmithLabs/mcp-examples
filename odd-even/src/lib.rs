@@ -1,10 +1,18 @@
-use candid::CandidType;
-use candid::Principal;
+use candid::{CandidType, Nat, Principal};
 use hex::encode;
-use ic_cdk::{api::time, init, management_canister::raw_rand, query, update};
+use ic_cdk::{
+    api::{is_controller, msg_caller, time},
+    init,
+    management_canister::raw_rand,
+    query, update,
+};
 use ic_http_certification::{HttpRequest, HttpResponse, StatusCode};
 use ic_rmcp::{
     model::*, schema_for_type, Context, Error, Handler, IssuerConfig, OAuthConfig, Server,
+};
+use icrc_ledger_client::ICRC1Client;
+use icrc_ledger_types::{
+    icrc1::account::Account, icrc1::transfer::TransferArg, icrc2::transfer_from::TransferFromArgs,
 };
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -13,7 +21,10 @@ use sha2::{Digest, Sha256};
 use std::cell::RefCell;
 
 mod repo;
-use repo::{get, insert};
+use repo::{delete, get, insert};
+
+mod runtime;
+use runtime::CdkRuntime;
 
 use crate::repo::GameInfo;
 
@@ -121,7 +132,33 @@ impl Handler for OddEven {
                     result: random_result.to_string(),
                     hash: get_game_hash(random_result, &random_hex),
                 };
-                // TODO: take deposit
+
+                let client = ICRC1Client {
+                    runtime: CdkRuntime,
+                    ledger_canister_id: Principal::from_text("ryjl3-tyaaa-aaaaa-aaaba-cai")
+                        .unwrap(),
+                };
+
+                let _ = client
+                    .transfer_from(TransferFromArgs {
+                        spender_subaccount: None,
+                        from: Account {
+                            owner: principal,
+                            subaccount: None,
+                        },
+                        to: Account {
+                            owner: msg_caller(),
+                            subaccount: None,
+                        },
+                        amount: Nat::from(request.amount),
+                        fee: None,
+                        memo: None,
+                        created_at_time: None,
+                    })
+                    .await
+                    .map_err(|err| Error::internal_error(format!("{err:?}"), None))?
+                    .map_err(|err| Error::internal_error(format!("{err:?}"), None))?;
+
                 insert(principal, info.clone());
                 Ok(CallToolResult::success(
                     Content::text(format!("Successfully. Your game hash is {}", info.hash))
@@ -162,6 +199,7 @@ impl Handler for OddEven {
 
                         if info.result != request.guess.to_string() {
                             let plaintext = format!("{}|{}", info.result, info.random_hex);
+                            delete(principal);
                             return Ok(CallToolResult::success(
                                 Content::text(format!(
                                     "You lose. Plaintext used for hashing: {plaintext}"
@@ -170,7 +208,29 @@ impl Handler for OddEven {
                             ));
                         }
 
-                        // TODO: disburse
+                        let client = ICRC1Client {
+                            runtime: CdkRuntime,
+                            ledger_canister_id: Principal::from_text("ryjl3-tyaaa-aaaaa-aaaba-cai")
+                                .unwrap(),
+                        };
+
+                        let _ = client
+                            .transfer(TransferArg {
+                                to: Account {
+                                    owner: principal,
+                                    subaccount: None,
+                                },
+                                fee: None,
+                                memo: None,
+                                from_subaccount: None,
+                                created_at_time: None,
+                                amount: Nat::from(info.amount),
+                            })
+                            .await
+                            .map_err(|err| Error::internal_error(format!("Could not disburse, please contact server's admin: {err:?}"), None))?
+                            .map_err(|err| Error::internal_error(format!("Could not disburse, please contact server's admin: {err:?}"), None))?;
+
+                        delete(principal);
                         let plaintext = format!("{}|{}", info.result, info.random_hex);
                         Ok(CallToolResult::success(
                             Content::text(format!(
@@ -194,7 +254,7 @@ impl Handler for OddEven {
             tools: vec![
                 Tool::new(
                     "start",
-                    "Start a odd-even game. The amount is in ICP decimal unit. For example, if you want to bet 1 ICP, you must pass in 100_000_000 as input. Min amount: 10_000_000 (0.1 ICP), max amount: 500_000_000 (5 ICP). This tool will return the game hash, hased from the template `<GameResult>|<Random_Hex>`. To play, call tool `play`.",
+                    "Start a odd-even game. The amount is in ICP decimal unit. For example, if you want to bet 1 ICP, you must pass in 100_000_000 as input. Min amount: 10_000_000 (0.1 ICP), max amount: 500_000_000 (5 ICP). This tool will return the game hash, hased from the template `<GameResult>|<Random_Hex>` using SHA256. To play, call tool `play`.",
                     schema_for_type::<StartRequest>(),
                 ),
                 Tool::new(
@@ -220,6 +280,16 @@ impl Handler for OddEven {
             ),
             ..Default::default()
         }
+    }
+}
+
+#[update]
+fn admin_delete(principal: Principal) -> String {
+    if is_controller(&msg_caller()) {
+        delete(principal);
+        "Successfully".to_string()
+    } else {
+        "Forbidden".to_string()
     }
 }
 

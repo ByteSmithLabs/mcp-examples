@@ -21,6 +21,7 @@ type InitArgs = record {
     scopes: vec text;
 };
 service : (InitArgs) -> {
+  admin_delete: (principal) -> (text);
   http_request : (HttpRequest) -> (HttpResponse) query;
   http_request_update : (HttpRequest) -> (HttpResponse);
 }

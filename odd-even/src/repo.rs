@@ -48,3 +48,7 @@ pub fn get(key: Principal) -> Option<GameInfo> {
 pub fn insert(key: Principal, value: GameInfo) {
     MAP.with(|p| p.borrow_mut().insert(key, value));
 }
+
+pub fn delete(key: Principal) -> Option<GameInfo> {
+    MAP.with(|p| p.borrow_mut().remove(&key))
+}
