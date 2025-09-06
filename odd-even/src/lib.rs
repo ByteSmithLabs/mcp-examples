@@ -1,7 +1,7 @@
 use candid::{CandidType, Nat, Principal};
 use hex::encode;
 use ic_cdk::{
-    api::{is_controller, msg_caller, time, canister_self},
+    api::{canister_self, is_controller, msg_caller, time},
     init,
     management_canister::raw_rand,
     query, update,
