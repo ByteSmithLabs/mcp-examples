@@ -224,7 +224,7 @@ impl Handler for OddEven {
                                 memo: None,
                                 from_subaccount: None,
                                 created_at_time: None,
-                                amount: Nat::from(info.amount),
+                                amount:  Nat::from(2*info.amount),
                             })
                             .await
                             .map_err(|err| Error::internal_error(format!("Could not disburse, please contact server's admin: {err:?}"), None))?
