@@ -1,7 +1,7 @@
 use candid::{CandidType, Nat, Principal};
 use hex::encode;
 use ic_cdk::{
-    api::{is_controller, msg_caller, time},
+    api::{is_controller, msg_caller, time, canister_self},
     init,
     management_canister::raw_rand,
     query, update,
@@ -147,7 +147,7 @@ impl Handler for OddEven {
                             subaccount: None,
                         },
                         to: Account {
-                            owner: msg_caller(),
+                            owner: canister_self(),
                             subaccount: None,
                         },
                         amount: Nat::from(request.amount),
