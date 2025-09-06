@@ -1,14 +1,33 @@
-use candid::CandidType;
-use ic_cdk::{init, query, update};
+use candid::{CandidType, Nat, Principal};
+use hex::encode;
+use ic_cdk::{
+    api::{is_controller, msg_caller, time, canister_self},
+    init,
+    management_canister::raw_rand,
+    query, update,
+};
 use ic_http_certification::{HttpRequest, HttpResponse, StatusCode};
 use ic_rmcp::{
     model::*, schema_for_type, Context, Error, Handler, IssuerConfig, OAuthConfig, Server,
 };
+use icrc_ledger_client::ICRC1Client;
+use icrc_ledger_types::{
+    icrc1::account::Account, icrc1::transfer::TransferArg, icrc2::transfer_from::TransferFromArgs,
+};
 use schemars::JsonSchema;
 use serde::Deserialize;
+use serde_json::{from_value, Value};
+use sha2::{Digest, Sha256};
 use std::cell::RefCell;
 
-// TODO: data retention!
+mod repo;
+use repo::{delete, get, insert};
+
+mod runtime;
+use runtime::CdkRuntime;
+
+use crate::repo::GameInfo;
+
 thread_local! {
     static ARGS : RefCell<InitArgs> =  RefCell::default();
 }
@@ -21,6 +40,7 @@ struct InitArgs {
     jwks_url: String,
     authorization_server: Vec<String>,
     audience: String,
+    scopes: Vec<String>,
 }
 
 #[init]
@@ -30,12 +50,27 @@ fn init(config: InitArgs) {
 
 #[derive(JsonSchema, Deserialize)]
 struct StartRequest {
-    // TODO: amount
+    amount: u64,
+}
+
+#[derive(JsonSchema, Deserialize)]
+enum GameResult {
+    Odd,
+    Even,
+}
+
+impl std::fmt::Display for GameResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GameResult::Odd => write!(f, "Odd"),
+            GameResult::Even => write!(f, "Even"),
+        }
+    }
 }
 
 #[derive(JsonSchema, Deserialize)]
 struct PlayRequest {
-    // TODO: game_hash.
+    guess: GameResult,
 }
 
 struct OddEven;
@@ -43,15 +78,171 @@ struct OddEven;
 impl Handler for OddEven {
     async fn call_tool(
         &self,
-        _: Context,
-        _: CallToolRequestParam,
+        context: Context,
+        req: CallToolRequestParam,
     ) -> Result<CallToolResult, Error> {
-        // match req.name.as_ref() {
-        //      implement this
-        //     _ => Err(Error::invalid_params("not found tool", None)),
-        // }
+        match req.name.as_ref() {
+            "start" => {
+                let subject = context
+                    .subject
+                    .ok_or(Error::internal_error("Invalid user", None))?;
 
-        Err(Error::invalid_params("not found tool", None))
+                let principal = Principal::from_text(subject)
+                    .map_err(|_| Error::internal_error("Invalid user principal", None))?;
+
+                if let Some(unfinished_game) = get(principal) {
+                    return Ok(CallToolResult::success(
+                        Content::text(format!("You can not play a new game because you have an unfinished game with game hash = {}", unfinished_game.hash)).into_contents(),
+                    ));
+                }
+
+                let request = from_value::<StartRequest>(Value::Object(req.arguments.ok_or(
+                    Error::invalid_params("invalid arguments to tool start", None),
+                )?))
+                .map_err(|_| Error::invalid_params("invalid arguments to tool start", None))?;
+
+                if request.amount < 10_000_000 || request.amount > 500_000_000 {
+                    return Ok(CallToolResult::success(
+                        Content::text("Invalid amount. Amount must be greater than 10_000_000 and less than 500_000_000").into_contents(),
+                    ));
+                }
+
+                let random_hex = match get_random_hex().await {
+                    Ok(hex) => hex,
+                    Err(err) => {
+                        eprintln!("Get random hex: {err}");
+                        return Err(Error::internal_error("Internal error", None));
+                    }
+                };
+
+                let random_result = match get_game_result().await {
+                    Ok(result) => result,
+                    Err(err) => {
+                        eprintln!("Get random game result: {err}");
+                        return Err(Error::internal_error("Internal error", None));
+                    }
+                };
+
+                let timestamp_nanos = time();
+
+                let info = GameInfo {
+                    amount: request.amount,
+                    timestamp_nanos,
+                    random_hex: random_hex.clone(),
+                    result: random_result.to_string(),
+                    hash: get_game_hash(random_result, &random_hex),
+                };
+
+                let client = ICRC1Client {
+                    runtime: CdkRuntime,
+                    ledger_canister_id: Principal::from_text("ryjl3-tyaaa-aaaaa-aaaba-cai")
+                        .unwrap(),
+                };
+
+                let _ = client
+                    .transfer_from(TransferFromArgs {
+                        spender_subaccount: None,
+                        from: Account {
+                            owner: principal,
+                            subaccount: None,
+                        },
+                        to: Account {
+                            owner: canister_self(),
+                            subaccount: None,
+                        },
+                        amount: Nat::from(request.amount),
+                        fee: None,
+                        memo: None,
+                        created_at_time: None,
+                    })
+                    .await
+                    .map_err(|err| Error::internal_error(format!("{err:?}"), None))?
+                    .map_err(|err| Error::internal_error(format!("{err:?}"), None))?;
+
+                insert(principal, info.clone());
+                Ok(CallToolResult::success(
+                    Content::text(format!("Successfully. Your game hash is {}", info.hash))
+                        .into_contents(),
+                ))
+            }
+            "play" => {
+                let subject = context
+                    .subject
+                    .ok_or(Error::internal_error("Invalid user", None))?;
+
+                let principal = Principal::from_text(subject)
+                    .map_err(|_| Error::internal_error("Invalid user principal", None))?;
+
+                let request = from_value::<PlayRequest>(Value::Object(req.arguments.ok_or(
+                    Error::invalid_params("invalid arguments to tool `play`", None),
+                )?))
+                .map_err(|_| Error::invalid_params("invalid arguments to tool `play`", None))?;
+
+                match get(principal) {
+                    None => Ok(CallToolResult::success(
+                        Content::text(
+                            "You don't have any in-progress game. Start a game using tool `start`.",
+                        )
+                        .into_contents(),
+                    )),
+                    Some(info) => {
+                        let now = time();
+                        if now.saturating_sub(info.timestamp_nanos) > 604_800_000_000_000 {
+                            return Ok(CallToolResult::success(
+                                Content::text(format!(
+                                    "Your game has expired (hash = {}). Contact server's admin to revoke.",
+                                    info.hash
+                                ))
+                                .into_contents(),
+                            ));
+                        }
+
+                        if info.result != request.guess.to_string() {
+                            let plaintext = format!("{}|{}", info.result, info.random_hex);
+                            delete(principal);
+                            return Ok(CallToolResult::success(
+                                Content::text(format!(
+                                    "You lose. Plaintext used for hashing: {plaintext}"
+                                ))
+                                .into_contents(),
+                            ));
+                        }
+
+                        let client = ICRC1Client {
+                            runtime: CdkRuntime,
+                            ledger_canister_id: Principal::from_text("ryjl3-tyaaa-aaaaa-aaaba-cai")
+                                .unwrap(),
+                        };
+
+                        let _ = client
+                            .transfer(TransferArg {
+                                to: Account {
+                                    owner: principal,
+                                    subaccount: None,
+                                },
+                                fee: None,
+                                memo: None,
+                                from_subaccount: None,
+                                created_at_time: None,
+                                amount:  Nat::from(2*info.amount),
+                            })
+                            .await
+                            .map_err(|err| Error::internal_error(format!("Could not disburse, please contact server's admin: {err:?}"), None))?
+                            .map_err(|err| Error::internal_error(format!("Could not disburse, please contact server's admin: {err:?}"), None))?;
+
+                        delete(principal);
+                        let plaintext = format!("{}|{}", info.result, info.random_hex);
+                        Ok(CallToolResult::success(
+                            Content::text(format!(
+                                "You win. Plaintext used for hashing: {plaintext}"
+                            ))
+                            .into_contents(),
+                        ))
+                    }
+                }
+            }
+            _ => Err(Error::invalid_params("not found tool", None)),
+        }
     }
     async fn list_tools(
         &self,
@@ -63,21 +254,12 @@ impl Handler for OddEven {
             tools: vec![
                 Tool::new(
                     "start",
-                    // TODO: Clarify more about input and output.
-                    // Accept amount to deduct money.
-                    // Save game info.
-                    // Return game hash. Hashed from result (odd or even) + random number + created timestamp
-                    "Start a odd-even game.",
+                    "Start a odd-even game. The amount is in ICP decimal unit. For example, if you want to bet 1 ICP, you must pass in 100_000_000 as input. Min amount: 10_000_000 (0.1 ICP), max amount: 500_000_000 (5 ICP). This tool will return the game hash, hased from the template `<GameResult>|<Random_Hex>` using SHA256. To play, call tool `play`.",
                     schema_for_type::<StartRequest>(),
                 ),
                 Tool::new(
                     "play",
-                    // TODO: Clarify more about input and output.
-                    // Accept game hash, retrieve game info. Check if exist.
-                    // Check timestamp.
-                    // Compare.
-                    // Disburse if needed.
-                    "Play a odd-even game.",
+                    "Play a odd-even game. Make sure you start the game using `start` before playing.",
                     schema_for_type::<PlayRequest>(),
                 ),
             ],
@@ -98,6 +280,16 @@ impl Handler for OddEven {
             ),
             ..Default::default()
         }
+    }
+}
+
+#[update]
+fn admin_delete(principal: Principal) -> String {
+    if is_controller(&msg_caller()) {
+        delete(principal);
+        "Successfully".to_string()
+    } else {
+        "Forbidden".to_string()
     }
 }
 
@@ -123,10 +315,32 @@ async fn http_request_update(req: HttpRequest<'_>) -> HttpResponse<'_> {
                     authorization_server: args.authorization_server.clone(),
                     audience: args.audience.clone(),
                 },
-                scopes_supported: vec![],
+                scopes_supported: args.scopes.to_vec(),
             }),
         )
         .await
+}
+
+async fn get_random_hex() -> Result<String, String> {
+    let bytes = raw_rand().await.map_err(|err| err.to_string())?;
+    Ok(encode(&bytes))
+}
+
+async fn get_game_result() -> Result<GameResult, String> {
+    let bytes = raw_rand().await.map_err(|e| e.to_string())?;
+    let parity = bytes.iter().fold(0u8, |acc, &b| acc ^ b) & 1;
+    Ok(if parity == 0 {
+        GameResult::Even
+    } else {
+        GameResult::Odd
+    })
+}
+
+fn get_game_hash(result: GameResult, random_hex: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(format!("{result}|{random_hex}"));
+    let result = hasher.finalize();
+    hex::encode(result)
 }
 
 ic_cdk::export_candid!();

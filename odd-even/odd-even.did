@@ -18,8 +18,10 @@ type InitArgs = record {
     jwks_url: text;
     authorization_server: vec text;
     audience: text;
+    scopes: vec text;
 };
 service : (InitArgs) -> {
+  admin_delete: (principal) -> (text);
   http_request : (HttpRequest) -> (HttpResponse) query;
   http_request_update : (HttpRequest) -> (HttpResponse);
 }
