@@ -24,7 +24,7 @@ impl Storable for GameInfo {
     }
 
     const BOUND: Bound = Bound::Bounded {
-        max_size: 100,
+        max_size: 200,
         is_fixed_size: false,
     };
 }

@@ -18,6 +18,7 @@ type InitArgs = record {
     jwks_url: text;
     authorization_server: vec text;
     audience: text;
+    scopes: vec text;
 };
 service : (InitArgs) -> {
   http_request : (HttpRequest) -> (HttpResponse) query;

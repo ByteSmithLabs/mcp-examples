@@ -29,6 +29,7 @@ struct InitArgs {
     jwks_url: String,
     authorization_server: Vec<String>,
     audience: String,
+    scopes: Vec<String>,
 }
 
 #[init]
@@ -193,7 +194,6 @@ impl Handler for OddEven {
             tools: vec![
                 Tool::new(
                     "start",
-                    // TODO: add hash template example.
                     "Start a odd-even game. The amount is in ICP decimal unit. For example, if you want to bet 1 ICP, you must pass in 100_000_000 as input. Min amount: 10_000_000 (0.1 ICP), max amount: 500_000_000 (5 ICP). This tool will return the game hash, hased from the template `<GameResult>|<Random_Hex>`. To play, call tool `play`.",
                     schema_for_type::<StartRequest>(),
                 ),
@@ -245,7 +245,7 @@ async fn http_request_update(req: HttpRequest<'_>) -> HttpResponse<'_> {
                     authorization_server: args.authorization_server.clone(),
                     audience: args.audience.clone(),
                 },
-                scopes_supported: vec![],
+                scopes_supported: args.scopes.to_vec(),
             }),
         )
         .await
