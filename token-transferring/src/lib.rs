@@ -34,6 +34,7 @@ struct InitArgs {
     jwks_url: String,
     authorization_server: Vec<String>,
     audience: String,
+    scopes: Vec<String>,
 }
 
 #[init]
@@ -304,7 +305,7 @@ async fn http_request_update(req: HttpRequest<'_>) -> HttpResponse<'_> {
                     authorization_server: args.authorization_server.clone(),
                     audience: args.audience.clone(),
                 },
-                scopes_supported: vec![],
+                scopes_supported: args.scopes.clone(),
             }),
         )
         .await
